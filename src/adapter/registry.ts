@@ -23,7 +23,7 @@ export function setAdapter(adapter: OpenChartsAdapter): () => void {
     try {
       listener(adapter);
     } catch (err) {
-      console.error("[opencharts] adapter listener threw", err);
+      console.error("[open-charting] adapter listener threw", err);
     }
   }
   return () => {
@@ -41,7 +41,7 @@ export function setAdapter(adapter: OpenChartsAdapter): () => void {
 export function getAdapter(): OpenChartsAdapter {
   if (!current) {
     throw new Error(
-      "[opencharts] No adapter installed. Wrap the terminal in <OpenChartsProvider adapter={...}>, " +
+      "[open-charting] No adapter installed. Wrap the terminal in <OpenChartsProvider adapter={...}>, " +
         "or call setAdapter() before rendering. createDemoAdapter() runs against bundled data.",
     );
   }

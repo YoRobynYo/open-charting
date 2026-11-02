@@ -342,7 +342,7 @@ export interface NewsItem {
 }
 
 /**
- * Placeholder headlines for the News tab. OpenCharts ships no news feed, so
+ * Placeholder headlines for the News tab. open-charting ships no news feed, so
  * these exist only to show the panel's shape — they carry a "Sample" source
  * rather than a real outlet's name, and the tab labels them as sample data.
  */

@@ -113,7 +113,7 @@ export function useTerminal(): TerminalContextValue {
   const value = useContext(TerminalContext);
   if (!value) {
     throw new Error(
-      "[opencharts] Terminal panels must be rendered inside <TerminalProvider>. " +
+      "[open-charting] Terminal panels must be rendered inside <TerminalProvider>. " +
         "Use <Terminal /> for the standard layout, or wrap your own composition.",
     );
   }

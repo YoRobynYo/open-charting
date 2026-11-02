@@ -3,7 +3,7 @@ import prefixSelector from "postcss-prefix-selector";
 /**
  * Scope every stylesheet rule under `.opencharts`.
  *
- * OpenCharts is embedded in other people's pages, and Tailwind's output is
+ * open-charting is embedded in other people's pages, and Tailwind's output is
  * global by default: its reset (`* { margin: 0 }`), element styles for inputs
  * and tables, and theme variables on `:root` named `--background`, `--primary`,
  * `--border` — the same names shadcn/ui uses. Unscoped, importing the terminal's

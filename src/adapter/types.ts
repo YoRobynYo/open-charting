@@ -9,7 +9,7 @@ import type {
 } from "../services/schemas.ts";
 
 /**
- * The OpenCharts adapter contract.
+ * The open-charting adapter contract.
  *
  * This is the whole surface the terminal needs from a data and trading
  * backend. Implement it and pass it to `<OpenChartsProvider adapter={...}>` —

@@ -1,7 +1,7 @@
 {
-  "name": "OpenCharts",
-  "short_name": "OpenCharts",
-  "description": "Open-source trading terminal — advanced charts, drawing tools, and paper trading.",
+  "name": "open-charting",
+  "short_name": "open-charting",
+  "description": "Open-source trading terminal \u2014 advanced charts, drawing tools, and paper trading.",
   "start_url": "./",
   "display": "standalone",
   "orientation": "any",

@@ -44,7 +44,7 @@ function trading() {
   const gateway = getAdapter().trading;
   if (!gateway) {
     throw new ApiError(
-      "This OpenCharts adapter provides market data only — trading is not available.",
+      "This open-charting adapter provides market data only — trading is not available.",
       501,
       "TRADING_UNSUPPORTED",
     );
@@ -159,7 +159,7 @@ const candlesPayload = (candles: Candle[]): MarketDataCandlesPayload => ({
 
 const DEMO_USER = {
   id: "demo-user",
-  email: "demo@opencharts.dev",
+  email: "demo@open-charting.local",
   firstName: "Demo",
   lastName: "Trader",
   roles: ["trader"],
@@ -176,7 +176,7 @@ const authResponse = (): AuthResponse => ({
 
 export const api = {
   // ── Session ──
-  // OpenCharts ships no authentication: the host application owns identity and
+  // open-charting ships no authentication: the host application owns identity and
   // decides what its adapter exposes. These keep the existing store happy.
   login: (_email: string, _password: string): Promise<AuthResponse> =>
     Promise.resolve(authResponse()),

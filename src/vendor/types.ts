@@ -2,7 +2,7 @@
  * Locally vendored type definitions.
  *
  * These were previously imported from the upstream "@propsim/types" workspace
- * package. OpenCharts is standalone, so the handful of types actually used by
+ * package. open-charting is standalone, so the handful of types actually used by
  * the terminal are inlined here and the "@propsim/types" import specifier is
  * aliased to this file (see vite.config.ts / tsconfig.json).
  */

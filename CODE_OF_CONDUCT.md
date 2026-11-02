@@ -57,7 +57,7 @@ representing the community in public spaces.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the maintainers through a
-[private security advisory](https://github.com/dylanpersonguy/OpenCharts/security/advisories/new)
+[private security advisory](https://github.com/YoRobynYo/open-charting/security/advisories/new)
 or by contacting the repository owner directly. All complaints will be reviewed
 and investigated promptly and fairly.
 

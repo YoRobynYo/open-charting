@@ -11,7 +11,7 @@ import { setAdapter } from "./registry.ts";
 import type { OpenChartsAdapter } from "./types.ts";
 
 /**
- * The OpenCharts runtime.
+ * The open-charting runtime.
  *
  * ```tsx
  * <OpenChartsProvider adapter={myAdapter}>
@@ -107,7 +107,7 @@ function useBoot(adapter: OpenChartsAdapter, attempt: number): BootState {
       .catch((err: unknown) => {
         if (cancelled) return;
         const error = err instanceof Error ? err : new Error(String(err));
-        console.error("[opencharts] adapter failed to load", error);
+        console.error("[open-charting] adapter failed to load", error);
         setState({ key: adapter, boot: { status: "error", error } });
       });
 
@@ -124,7 +124,7 @@ function useBoot(adapter: OpenChartsAdapter, attempt: number): BootState {
 function DefaultFallback() {
   return (
     <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-      Loading OpenCharts…
+      Loading open-charting…
     </div>
   );
 }

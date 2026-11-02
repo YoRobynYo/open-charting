@@ -1,5 +1,5 @@
 {
-  "name": "@dylanpersonguy/opencharts",
+  "name": "open-charting",
   "version": "0.3.0",
   "description": "Open-source trading terminal: advanced charting, drawing tools and a built-in paper-trading engine, with no backend required.",
   "keywords": [
@@ -16,11 +16,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dylanpersonguy/OpenCharts.git"
+    "url": "https://github.com/YoRobynYo/open-charting.git"
   },
-  "homepage": "https://github.com/dylanpersonguy/OpenCharts#readme",
+  "homepage": "https://github.com/YoRobynYo/open-charting#readme",
   "bugs": {
-    "url": "https://github.com/dylanpersonguy/OpenCharts/issues"
+    "url": "https://github.com/YoRobynYo/open-charting/issues"
   },
   "type": "module",
   "engines": {

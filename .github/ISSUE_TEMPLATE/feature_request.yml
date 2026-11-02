@@ -32,7 +32,7 @@ body:
         - Indicators
         - Order flow / paper engine
         - Session replay
-        - Integration (using OpenCharts with my own backend)
+        - Integration (using open-charting with my own backend)
         - Theming / layout
         - Docs
         - Other

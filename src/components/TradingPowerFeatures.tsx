@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 // ── News feed (sample data) ──────────────────────────────────
 //
-// OpenCharts ships no news integration. These items are obviously-labelled
+// open-charting ships no news integration. These items are obviously-labelled
 // placeholders that show the shape of the panel; they are not attributed to
 // real outlets, because a demo must never look like a live wire.
 

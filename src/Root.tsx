@@ -29,7 +29,7 @@ export function Root() {
       .then(({ createBinancePaperAdapter }) => createBinancePaperAdapter())
       .then(setAdapter)
       .catch((err: unknown) => {
-        console.error("[opencharts] failed to load the Binance adapter; using the demo", err);
+        console.error("[open-charting] failed to load the Binance adapter; using the demo", err);
         setAdapter(createDemoAdapter());
       });
   }, []);

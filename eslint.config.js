@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 /**
- * Lint config for OpenCharts.
+ * Lint config for open-charting.
  *
  * The rule set is deliberately correctness-first: hook dependency and
  * rules-of-hooks violations, floating promises in event handlers, and unused

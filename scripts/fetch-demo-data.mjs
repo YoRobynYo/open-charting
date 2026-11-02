@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Seed real historical OHLC for the OpenCharts demo feed.
+ * Seed real historical OHLC for the open-charting demo feed.
  *
  * Pulls candles from Binance's public klines endpoint (no API key required)
  * and writes them to src/services/demo/data/<SYMBOL>_<tf>.json.
  *
- * The data is REAL market history — OpenCharts never ships synthetic candles.
+ * The data is REAL market history — open-charting never ships synthetic candles.
  * The demo feed (services/demo/feed.ts) replays a tail slice of these real
  * bars as the "live" stream, time-shifted to the present at runtime.
  *

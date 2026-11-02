@@ -12,7 +12,7 @@ import type { Candle, Symbol } from "../../src/services/schemas.ts";
 /**
  * A live market-data adapter for Binance's public API.
  *
- * This exists to show that the OpenCharts adapter contract is implementable
+ * This exists to show that the open-charting adapter contract is implementable
  * against a real backend, in one file, with no changes to the terminal. It
  * needs no API key: klines and book tickers are public endpoints.
  *
@@ -44,7 +44,7 @@ const PAIR_TO_SYMBOL = new Map(
   Object.entries(SYMBOL_MAP).map(([symbol, { pair }]) => [pair, symbol]),
 );
 
-/** OpenCharts timeframes happen to match Binance's interval strings. */
+/** open-charting timeframes happen to match Binance's interval strings. */
 const INTERVALS = new Set(["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"]);
 
 // ── Pure helpers (exported for tests) ─────────────────────
@@ -68,7 +68,7 @@ export type BinanceKline = [
 ];
 
 /**
- * Binance sends prices as strings and times in milliseconds; OpenCharts wants
+ * Binance sends prices as strings and times in milliseconds; open-charting wants
  * numbers and seconds.
  */
 export function klineToCandle(kline: BinanceKline): Candle {
@@ -90,7 +90,7 @@ export function buildKlineUrl(request: CandleRequest): string | null {
   // Binance caps at 1000 bars per call.
   params.set("limit", String(Math.min(1000, Math.max(1, Math.floor(request.limit ?? 500)))));
   if (request.fromMs != null) params.set("startTime", String(Math.floor(request.fromMs)));
-  // `toMs` is exclusive in the OpenCharts contract but Binance's `endTime` is
+  // `toMs` is exclusive in the open-charting contract but Binance's `endTime` is
   // inclusive, so the boundary bar would come back twice while the chart pages
   // backwards. Step back a millisecond.
   if (request.toMs != null) params.set("endTime", String(Math.floor(request.toMs) - 1));

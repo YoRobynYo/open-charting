@@ -1,10 +1,10 @@
 /**
- * OpenCharts — an embeddable trading terminal.
+ * open-charting — an embeddable trading terminal.
  *
  * ```tsx
- * import { OpenChartsProvider, Terminal } from "@dylanpersonguy/opencharts";
- * import { createDemoAdapter } from "@dylanpersonguy/opencharts/demo";
- * import "@dylanpersonguy/opencharts/style.css";
+ * import { OpenChartsProvider, Terminal } from "open-charting";
+ * import { createDemoAdapter } from "open-charting/demo";
+ * import "open-charting/style.css";
  *
  * <OpenChartsProvider adapter={createDemoAdapter()}>
  *   <Terminal />

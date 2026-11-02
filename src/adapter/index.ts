@@ -1,5 +1,5 @@
 /**
- * Public entry point for embedding OpenCharts.
+ * Public entry point for embedding open-charting.
  *
  * Implement `OpenChartsAdapter`, hand it to `<OpenChartsProvider>`, and the
  * terminal runs against your backend — no fork, no patched files.

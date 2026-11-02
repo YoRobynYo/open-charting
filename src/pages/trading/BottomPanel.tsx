@@ -516,7 +516,7 @@ function NewsFeed() {
     <div className="divide-y divide-border/30">
       <div className="px-3 py-1.5 bg-secondary/40 text-[10px] text-muted-foreground flex items-center gap-1.5">
         <span className="font-medium uppercase tracking-wide">Sample data</span>
-        <span>— OpenCharts ships no news feed; connect a provider to make this live.</span>
+        <span>— open-charting ships no news feed; connect a provider to make this live.</span>
       </div>
       {MOCK_NEWS.map((item, i) => (
         <div key={i} className="px-3 py-2 hover:bg-secondary/30 cursor-pointer">

@@ -1,18 +1,18 @@
 <div align="center">
 
-# 📈 OpenCharts
+# 📈 open-charting
 
 **An open-source trading terminal that runs entirely in your browser — no backend to run, no signup, no API keys.**
 
 Advanced charting · full drawing-tool suite · 8 indicators · session replay · watchlist · depth-of-market · order ticket · built-in paper-trading engine, seeded with **real** market history.
 
-[![CI](https://github.com/dylanpersonguy/OpenCharts/actions/workflows/ci.yml/badge.svg)](https://github.com/dylanpersonguy/OpenCharts/actions/workflows/ci.yml)
+[![CI](https://github.com/YoRobynYo/open-charting/actions/workflows/ci.yml/badge.svg)](https://github.com/YoRobynYo/open-charting/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](https://nodejs.org)
 
-**[▶ Live demo](https://dylanpersonguy.github.io/OpenCharts/)** · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
+**[▶ Live demo](https://YoRobynYo.github.io/open-charting/)** · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
-![OpenCharts trading terminal](docs/screenshot.png)
+![open-charting trading terminal](docs/screenshot.png)
 
 </div>
 
@@ -20,16 +20,16 @@ Advanced charting · full drawing-tool suite · 8 indicators · session replay �
 
 ## Table of contents
 
-- [What is OpenCharts?](#what-is-opencharts)
+- [What is open-charting?](#what-is-open-charting)
 - [Features](#features)
 - [Quick start](#quick-start)
 - [What's real and what's simulated](#whats-real-and-whats-simulated)
 - [How it works](#how-it-works)
 - [Built on Lightweight Charts](#built-on-lightweight-charts)
 - [Project structure](#project-structure)
-- [Building on OpenCharts](#building-on-opencharts)
+- [Building on open-charting](#building-on-open-charting)
 - [Refreshing the bundled market data](#refreshing-the-bundled-market-data)
-- [Integrating OpenCharts](#integrating-opencharts)
+- [Integrating open-charting](#integrating-open-charting)
 - [Adding instruments](#adding-instruments)
 - [Configuration](#configuration)
 - [Scripts](#scripts)
@@ -41,9 +41,9 @@ Advanced charting · full drawing-tool suite · 8 indicators · session replay �
 
 ---
 
-## What is OpenCharts?
+## What is open-charting?
 
-OpenCharts is a self-contained **trading terminal UI**. Open it and you land
+open-charting is a self-contained **trading terminal UI**. Open it and you land
 straight in the terminal: a candlestick chart with a TradingView-style drawing
 toolbar, indicators, a watchlist, a depth-of-market ladder and an order ticket —
 all wired to an **in-browser paper-trading engine** funded with $100,000.
@@ -58,7 +58,7 @@ It's useful as:
 - A **standalone charting / paper-trading app** you can host on any static host.
 - A **reference terminal UI** you can point at your own market-data and trading
   backend — implement one adapter interface, no fork required
-  (see [Integrating OpenCharts](#integrating-opencharts)).
+  (see [Integrating open-charting](#integrating-open-charting)).
 - A **learning sandbox** for charting, technical drawing and order management.
 
 The codebase was extracted from a closed-source prop-trading platform, so a few
@@ -72,7 +72,7 @@ deliberately small, dependency-light and backend-agnostic so that anyone can
 clone it, understand it in an afternoon and extend it. Contributions of every
 size are welcome, from a new indicator or drawing tool to an exchange adapter,
 a theme, a bug report or a docs fix — see
-[Building on OpenCharts](#building-on-opencharts) and
+[Building on open-charting](#building-on-open-charting) and
 [Contributing](#contributing).
 
 ## Features
@@ -158,19 +158,19 @@ toolbar and removable individually or in bulk from the chart context menu.
 > ```bash
 > npm install && npm run build:lib && npm pack
 > # then, in your app:
-> npm install /path/to/OpenCharts/dylanpersonguy-opencharts-0.3.0.tgz
+> npm install /path/to/open-charting/open-charting-0.3.0.tgz
 > ```
 >
 > Once it is published, this becomes:
 
 ```bash
-npm install @dylanpersonguy/opencharts
+npm install open-charting
 ```
 
 ```tsx
-import { OpenChartsProvider, Terminal } from "@dylanpersonguy/opencharts";
-import { createDemoAdapter } from "@dylanpersonguy/opencharts/demo";
-import "@dylanpersonguy/opencharts/style.css";
+import { OpenChartsProvider, Terminal } from "open-charting";
+import { createDemoAdapter } from "open-charting/demo";
+import "open-charting/style.css";
 
 export function TradingScreen() {
   return (
@@ -185,7 +185,7 @@ export function TradingScreen() {
 
 That runs the full terminal against the bundled demo data — nothing else to
 configure. Swap `createDemoAdapter()` for your own adapter to point it at a real
-backend ([Integrating OpenCharts](#integrating-opencharts)). React 18.2+ is the
+backend ([Integrating open-charting](#integrating-open-charting)). React 18.2+ is the
 only peer dependency; the stylesheet is precompiled, so your app does not need
 Tailwind.
 
@@ -211,7 +211,7 @@ npm run preview    # serve the production build locally
 
 ## What's real and what's simulated
 
-OpenCharts is a paper terminal, and being precise about this matters more than
+open-charting is a paper terminal, and being precise about this matters more than
 marketing copy:
 
 | Piece | Status |
@@ -292,12 +292,12 @@ changes**.
 
 ## Built on Lightweight Charts
 
-OpenCharts is **built on top of TradingView's
+open-charting is **built on top of TradingView's
 [Lightweight Charts™](https://github.com/tradingview/lightweight-charts)**
 (`lightweight-charts` `^4.2.0`, resolved to 4.2.3 in the lockfile, which in turn
 pulls in `fancy-canvas`, MIT). The chart canvas, series, panes, price scales,
 crosshair and time axis are all
-Lightweight Charts. OpenCharts is the terminal *around* it: the drawing engine
+Lightweight Charts. open-charting is the terminal *around* it: the drawing engine
 (`src/lib/chart-plugins/drawing-tools/`), the indicator layer, the series
 primitives, and the panels, order flow and paper engine that surround the chart.
 
@@ -322,7 +322,7 @@ project's license.
   Copyright (с) 2025 TradingView, Inc. https://www.tradingview.com/
   ```
 
-- **OpenCharts satisfies this via the chart's built-in attribution logo.** The
+- **open-charting satisfies this via the chart's built-in attribution logo.** The
   `attributionLogo` layout option defaults to `true` and this project never
   overrides it, so the TradingView link renders on the chart pane. **Do not set
   `attributionLogo: false` unless you place the notice and link somewhere else
@@ -331,7 +331,7 @@ project's license.
 - **Keep the notice when you redistribute.** Apache 2.0 requires that you pass
   along the license and notice with any copy or derivative — that includes the
   adapted plugin code in `src/lib/chart-plugins/`.
-- **OpenCharts' own code is MIT** (see [LICENSE](LICENSE)). MIT and Apache 2.0
+- **open-charting's own code is MIT** (see [LICENSE](LICENSE)). MIT and Apache 2.0
   are compatible, so a build that combines them is fine — you just have to honor
   Apache 2.0's attribution and notice terms for the chart portion.
 
@@ -391,7 +391,7 @@ scripts/
 └─ fetch-demo-data.mjs      # refresh the bundled real OHLC
 ```
 
-## Building on OpenCharts
+## Building on open-charting
 
 Everything below is a real extension point in the code, not a roadmap. `npm run
 typecheck` and `npm run test` are the two gates; TypeScript runs in `strict` mode
@@ -512,17 +512,17 @@ node scripts/fetch-demo-data.mjs
 ```
 
 This re-pulls up to 1000 bars per symbol per timeframe and rewrites the bundled files
-plus `data/manifest.json`. The candles are genuine market history — OpenCharts
+plus `data/manifest.json`. The candles are genuine market history — open-charting
 never ships synthetic OHLC.
 
-## Integrating OpenCharts
+## Integrating open-charting
 
-**You do not fork OpenCharts to use your own data.** Implement one interface,
+**You do not fork open-charting to use your own data.** Implement one interface,
 hand it to the provider, and the whole terminal — chart, order ticket, positions,
 replay — runs against your backend.
 
 ```tsx
-import { OpenChartsProvider, Terminal, type OpenChartsAdapter } from "@dylanpersonguy/opencharts";
+import { OpenChartsProvider, Terminal, type OpenChartsAdapter } from "open-charting";
 
 const adapter: OpenChartsAdapter = {
   name: "my-broker",
@@ -578,7 +578,7 @@ A conformance suite ships with the project and checks the things that fail
 quietly:
 
 ```ts
-import { runAdapterConformance } from "@dylanpersonguy/opencharts/conformance";
+import { runAdapterConformance } from "open-charting/conformance";
 
 runAdapterConformance("my-broker", () => createMyAdapter(), { symbol: "BTCUSD" });
 ```
@@ -630,7 +630,7 @@ error with a retry button instead of a blank screen.
 | Prop | Default | |
 | --- | --- | --- |
 | `adapter` | — | Your `OpenChartsAdapter` (required) |
-| `fallback` | "Loading OpenCharts…" | Shown while instruments and accounts load |
+| `fallback` | "Loading open-charting…" | Shown while instruments and accounts load |
 | `queryClient` | its own | Pass yours to share a TanStack Query cache; by default the terminal's stays separate from the host's |
 | `showNotifications` | `true` | Render the built-in notifications |
 | `className` / `style` | — | Applied to the scoping element |
@@ -653,7 +653,7 @@ Order fills, rejections and their reasons, and validation warnings come
 through one stream:
 
 ```tsx
-import { onNotification } from "@dylanpersonguy/opencharts";
+import { onNotification } from "open-charting";
 
 const stop = onNotification((n) => myToaster.show(n.title, n.message, n.type));
 ```
@@ -692,7 +692,7 @@ Everything works with no configuration. Optional environment variables:
 | `VITE_ADAPTER` | Set to `binance` to run the demo against live Binance prices |
 | `VITE_API_URL` | Base URL used by the legacy HTTP client in `src/services/api/` |
 
-**OpenCharts ships no analytics or telemetry.** Nothing leaves the browser
+**open-charting ships no analytics or telemetry.** Nothing leaves the browser
 except the requests your adapter makes, and the TradingView embeds below.
 
 Note that the Calendar tab and the technical-analysis gauge load TradingView's
@@ -763,7 +763,7 @@ and Vitest.
 
 ## Contributing
 
-OpenCharts is a community project and it is open to anyone who wants to make it
+open-charting is a community project and it is open to anyone who wants to make it
 better — there is no core team you need permission from. Issues, pull requests,
 questions and design opinions are all welcome, and small first contributions are
 genuinely useful.
@@ -771,7 +771,7 @@ genuinely useful.
 Good places to start:
 
 - **Indicators and drawing tools** — the two most self-contained additions; see
-  [Building on OpenCharts](#building-on-opencharts).
+  [Building on open-charting](#building-on-open-charting).
 - **Persistence for the paper account**, so a session survives a reload.
 - **Data adapters** for other exchanges or brokers, written against the
   `OpenChartsAdapter` contract — [`examples/binance-adapter/`](examples/binance-adapter/)
@@ -793,14 +793,14 @@ adapter or the demo layer directly, and backends plug in only through the
 
 ## Acknowledgements
 
-OpenCharts stands on TradingView's open-source
+open-charting stands on TradingView's open-source
 [Lightweight Charts™](https://github.com/tradingview/lightweight-charts), which
 renders every chart here, and on the plugin examples shipped in that repository.
 Thank you to TradingView for releasing it under a permissive license.
 
 ## License
 
-OpenCharts is released under the **MIT License** — see [LICENSE](LICENSE).
+open-charting is released under the **MIT License** — see [LICENSE](LICENSE).
 
 It bundles TradingView's Lightweight Charts™, which is licensed under the
 **Apache License 2.0** and requires that you keep its attribution notice and a
