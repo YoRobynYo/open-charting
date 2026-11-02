@@ -411,6 +411,14 @@ function EventsTab({
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("session")}
       />
+      <SectionTitle>Structure</SectionTitle>
+      <ToggleRow
+        label="ICT analysis"
+        hint="2-bar confirmed swings, close-confirmed BOS / CHoCH, and FVG / iFVG zones"
+        checked={activePlugins.includes("ict")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("ict")}
+      />
       <SectionTitle>News</SectionTitle>
       <button
         onClick={() => {

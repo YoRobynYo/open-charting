@@ -83,7 +83,10 @@ a theme, a bug report or a docs fix — see
   timeframe (fewer where the exchange has less history, e.g. 461 weekly bars).
 - Volume histogram, OHLC legend, live bid/ask price lines, crosshair and bar countdown.
 - Toggleable chart plugins: crosshair highlight, session highlighting, session
-  breaks, bands indicator, OHLCV tooltip and delta (multi-touch) tooltip.
+  breaks, bands indicator, ICT structure, OHLCV tooltip and delta (multi-touch) tooltip.
+- **ICT structure layer** (off until enabled): two-bar-confirmed swing highs/lows,
+  close-confirmed BOS / CHoCH, and three-candle FVG / iFVG zones. Toggle it from
+  Chart Plugins or chart settings; annotations appear only on the chart overlay.
 - Chart settings dialog, right-click context menu, per-symbol preferences and
   saveable **chart templates** — all persisted to `localStorage`.
 

@@ -34,6 +34,7 @@ import {
 } from "../../lib/chart-plugins/drawing-tools/line-alerts.ts";
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
 import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
+import { IctAnalysis } from "../../lib/chart-plugins/ict-analysis/ict-analysis.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
 import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
@@ -311,6 +312,7 @@ const PLUGIN_FACTORIES: Record<string, (ctx: PluginBuildCtx) => ISeriesPrimitive
   session: () => new SessionHighlighting(forexSessionHighlighter),
   "session-breaks": buildSessionBreaks,
   bands: () => new BandsIndicator(),
+  ict: () => new IctAnalysis(),
   tooltip: () => new TooltipPrimitive({}),
   "delta-tooltip": () => new DeltaTooltipPrimitive({}),
 };
