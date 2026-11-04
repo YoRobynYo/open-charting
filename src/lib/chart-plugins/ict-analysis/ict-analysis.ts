@@ -195,6 +195,7 @@ interface RenderEvent {
   direction: IctDirection;
   x: number;
   x2: number;
+  labelX?: number;
   y: number;
   y2: number;
   label: string;
@@ -214,7 +215,7 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
       const labelEvents = this.events.filter((event) => event.kind !== "fvg" && event.kind !== "ifvg");
       const labelPositions = layoutAnnotationLabels(
         labelEvents.map((event) => ({
-          x: event.kind === "bos" || event.kind === "choch" ? (event.x + event.x2) / 2 : event.x,
+          x: event.labelX ?? event.x,
           y: event.y,
           width: ctx.measureText(event.label).width + 10,
         })),
@@ -257,13 +258,13 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.stroke();
           ctx.setLineDash([]);
           const label = event.kind.toUpperCase();
-          const mid = (event.x + event.x2) / 2;
+          const labelX = event.labelX ?? event.x2;
           const labelY = labelYByEvent.get(event) ?? event.y;
           const width = ctx.measureText(label).width + 8;
           ctx.fillStyle = "rgba(10,10,10,0.78)";
-          ctx.fillRect(mid - width / 2, labelY - 8, width, 16);
+          ctx.fillRect(labelX - width / 2, labelY - 8, width, 16);
           ctx.fillStyle = color;
-          ctx.fillText(label, mid, labelY);
+          ctx.fillText(label, labelX, labelY);
           continue;
         }
 
@@ -318,6 +319,7 @@ class IctPaneView implements ISeriesPrimitivePaneView {
           direction: event.direction,
           x: x1,
           x2,
+          labelX: x2,
           y,
           y2: y,
           label: event.kind.toUpperCase(),
@@ -337,6 +339,7 @@ class IctPaneView implements ISeriesPrimitivePaneView {
         direction: event.direction,
         x: x1,
         x2,
+        labelX: x1,
         y: y1,
         y2,
         label: event.kind.toUpperCase(),
