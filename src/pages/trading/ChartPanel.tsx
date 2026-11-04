@@ -34,6 +34,7 @@ import {
 } from "../../lib/chart-plugins/drawing-tools/line-alerts.ts";
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
 import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
+import { AiAnalysisOverlay } from "../../lib/chart-plugins/ai-analysis/ai-analysis-overlay.ts";
 import { IctAnalysis } from "../../lib/chart-plugins/ict-analysis/ict-analysis.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
@@ -42,6 +43,7 @@ import type { IndicatorType } from "../../lib/indicators.ts";
 import { cn } from "../../lib/utils.ts";
 import { api } from "../../services/api.ts";
 import { queryKeys } from "../../services/queries.ts";
+import type { AiChartPoint } from "../../services/ai-analysis.ts";
 import type { Candle, Order, Position, Symbol } from "../../services/schemas.ts";
 import { toast } from "../../services/toast.ts";
 import {
@@ -253,6 +255,7 @@ export interface ChartPanelProps {
     ruleCode?: string;
   }>;
   activePlugins?: string[];
+  aiPoints?: AiChartPoint[];
   /** Toggle a chart plugin (session breaks etc.) — used by the settings dialog. */
   onTogglePlugin?: (id: string) => void;
   /** Account equity — feeds the position tool's $-risk / size readout. */
@@ -1107,6 +1110,7 @@ export function ChartPanel({
   onModifyPosition,
   replayTradeEvents,
   activePlugins = [],
+  aiPoints = [],
   onTogglePlugin,
   accountEquity = 0,
   accountId,
@@ -1142,6 +1146,7 @@ export function ChartPanel({
   // TF change — see the TF-change effect below).
   const timeframeRef = useRef(timeframe);
   const chartPluginsRef = useRef<ISeriesPrimitive<Time>[]>([]);
+  const aiAnalysisOverlayRef = useRef<AiAnalysisOverlay | null>(null);
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const midLineRef = useRef<IPriceLine | null>(null);
@@ -1935,6 +1940,32 @@ export function ChartPanel({
       chartPluginsRef.current,
     );
   }, [activePlugins, isDark, selectedSymbol, timeframe, symbolCategory]);
+
+  // The AI layer owns only its point annotations. Updating a chat response
+  // replaces this primitive alone; ICT/session/indicator plugins stay attached.
+  const aiLayerEnabled = activePlugins.includes("ai");
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series) return;
+    const overlay = aiLayerEnabled ? new AiAnalysisOverlay(aiPoints) : null;
+    if (overlay) {
+      try {
+        series.attachPrimitive(overlay);
+        aiAnalysisOverlayRef.current = overlay;
+      } catch {
+        aiAnalysisOverlayRef.current = null;
+      }
+    }
+    return () => {
+      if (!overlay) return;
+      try {
+        series.detachPrimitive(overlay);
+      } catch {
+        /* chart instance may already have been removed */
+      }
+      if (aiAnalysisOverlayRef.current === overlay) aiAnalysisOverlayRef.current = null;
+    };
+  }, [aiLayerEnabled, aiPoints, chartEpoch]);
 
   // ── Live bid/ask price tracking lines ──────────────────────
   // applyBidAskLines moves the existing price lines in-place (applyOptions) or

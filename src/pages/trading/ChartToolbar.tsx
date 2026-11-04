@@ -461,6 +461,7 @@ const CHART_PLUGIN_ITEMS = [
   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
   { id: "ict", icon: Layers3, label: "ICT Structure" },
+  { id: "ai", icon: Activity, label: "AI Analysis" },
   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
 ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;

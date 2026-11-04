@@ -8,6 +8,8 @@ import type { PlaceOrderInput } from "../services/schemas.ts";
 import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
 import { useTradingStore } from "../services/store.tsx";
 import { useTerminal } from "../terminal/use-terminal.ts";
+import type { AiChartPoint } from "../services/ai-analysis.ts";
+import { AiAnalysisPanel } from "./trading/AiAnalysisPanel.tsx";
 import { BottomPanel } from "./trading/BottomPanel.tsx";
 import { ChartPanel } from "./trading/ChartPanel.tsx";
 import { ChartToolbar } from "./trading/ChartToolbar.tsx";
@@ -100,6 +102,10 @@ export function TradingPage() {
   >("order");
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [aiPointState, setAiPointState] = useState<{ context: string; points: AiChartPoint[] }>({
+    context: "",
+    points: [],
+  });
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
@@ -154,6 +160,14 @@ export function TradingPage() {
     [activeIndicators, toggleIndicator],
   );
   const ticks = useTradingStore((s) => s.ticks);
+  const displayedCandles = replayCandles ?? candles ?? [];
+  const displayedTimeframe = replayCandles ? "1m" : timeframe;
+  const chartContextKey = `${selectedSymbol}:${displayedTimeframe}:${replayCandles ? "replay" : "live"}`;
+  const aiPoints = aiPointState.context === chartContextKey ? aiPointState.points : [];
+  const onAiPointsChange = useCallback(
+    (points: AiChartPoint[]) => setAiPointState({ context: chartContextKey, points }),
+    [chartContextKey],
+  );
 
   return (
 
@@ -212,9 +226,9 @@ export function TradingPage() {
           {/* Chart Area */}
           <div className="flex-1 min-h-[200px] relative">
             <ChartPanel
-              candles={replayCandles ?? candles ?? []}
+              candles={displayedCandles}
               selectedSymbol={selectedSymbol}
-              timeframe={replayCandles ? "1m" : timeframe}
+              timeframe={displayedTimeframe}
               isDark={isDark}
               activeIndicators={activeIndicators}
               drawingTool={drawingTool}
@@ -238,6 +252,7 @@ export function TradingPage() {
               replayTradeEvents={replayTradeEvents}
               isReplaying={isReplaying}
               activePlugins={activePlugins}
+              aiPoints={aiPoints}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
               accountId={activeAccountId}
@@ -246,6 +261,15 @@ export function TradingPage() {
               onClearIndicators={handleClearIndicators}
             />
           </div>
+
+          <AiAnalysisPanel
+            key={chartContextKey}
+            visible={activePlugins.includes("ai")}
+            symbol={selectedSymbol}
+            timeframe={displayedTimeframe}
+            candles={displayedCandles}
+            onPointsChange={onAiPointsChange}
+          />
 
           {/* Replay timeline scrubber — disabled until the feature is QA'd */}
           {REPLAY_ENABLED && isReplaying && activeAccountId != null && (
@@ -388,4 +412,3 @@ export function TradingPage() {
     </div>
   );
 }
-

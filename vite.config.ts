@@ -40,6 +40,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/api/ai": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
       "/api": {
         target: "http://localhost:3000",
         changeOrigin: true,

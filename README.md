@@ -83,10 +83,13 @@ a theme, a bug report or a docs fix — see
   timeframe (fewer where the exchange has less history, e.g. 461 weekly bars).
 - Volume histogram, OHLC legend, live bid/ask price lines, crosshair and bar countdown.
 - Toggleable chart plugins: crosshair highlight, session highlighting, session
-  breaks, bands indicator, ICT structure, OHLCV tooltip and delta (multi-touch) tooltip.
+  breaks, bands indicator, ICT structure, AI analysis, OHLCV tooltip and delta (multi-touch) tooltip.
 - **ICT structure layer** (off until enabled): two-bar-confirmed swing highs/lows,
   close-confirmed BOS / CHoCH, and three-candle FVG / iFVG zones. Toggle it from
   Chart Plugins or chart settings; annotations appear only on the chart overlay.
+- **AI analysis layer** (off until enabled): AI chart markers plus a text and voice
+  conversation panel beneath the chart. It uses an optional server-side AI service;
+  the base chart continues to work without it.
 - Chart settings dialog, right-click context menu, per-symbol preferences and
   saveable **chart templates** — all persisted to `localStorage`.
 
@@ -686,6 +689,56 @@ BTCUSD, ETHUSD, SOLUSD, BNBUSD, XRPUSD and ADAUSD). To add one:
 2. Add its trading pair to the `SYMBOLS` map in `scripts/fetch-demo-data.mjs`.
 3. Run `node scripts/fetch-demo-data.mjs` to fetch and bundle its history.
 
+## Optional AI analysis service
+
+The AI layer uses a small Node.js sidecar in `server/`. Provider credentials stay on
+that server and are never bundled into the browser app. The service accepts only a
+bounded recent-candle snapshot and a short conversation, asks the configured
+OpenAI-compatible chat-completions endpoint for an explanation, and checks returned
+marker timestamps and prices against the supplied chart data before drawing them.
+
+For local development, copy `server/.env.example` to `server/.env`, set
+`OPENAI_API_KEY`, `OPENAI_MODEL`, and `AUTH_INTROSPECTION_URL` there, then start the
+service and the app in separate terminals. The introspection URL must be an existing
+authenticated app API route (the current app uses `/api/auth/preferences`) that
+returns success only for a valid bearer token:
+
+```sh
+set -a && . server/.env && set +a && npm run ai:server
+npm run dev
+```
+
+The Vite development server proxies `/api/ai/*` to `localhost:8787`; the existing
+application API continues to use its own proxy. Run `npm run test:ai-server` to
+exercise the backend request and point-validation rules. The AI server has no extra
+Node package dependencies.
+
+For a separate production AI host, configure `OPENAI_API_KEY`, `OPENAI_MODEL`,
+`AUTH_INTROSPECTION_URL`, and `AI_ALLOWED_ORIGINS` in that host's **server-side
+secret/environment settings**.
+Build the frontend with `VITE_AI_API_URL` set to the AI service's HTTPS origin, or
+reverse-proxy `/api/ai/*` on the app origin to that service. Do not put the provider
+key in a `VITE_` variable or commit it. `OPENAI_CHAT_COMPLETIONS_URL` can point to a
+compatible endpoint if the default provider URL is not suitable. `server/Dockerfile`
+provides a minimal container build.
+
+The service limits each request to 120 candles and 12 messages, caps calls at 8 per
+verified session per minute, 20 per session per UTC day, and 100 per service process
+per UTC day by default. Adjust these with `AI_RATE_LIMIT_PER_MINUTE`,
+`AI_MAX_REQUESTS_PER_USER_PER_DAY`, and `AI_MAX_REQUESTS_PER_DAY`. These counters are
+in-memory, per process; before exposing a billable endpoint publicly, put it behind
+your hosting provider's durable quota or edge rate-limiting controls. Set
+`TRUST_PROXY=true` only when a trusted reverse proxy overwrites forwarding headers.
+
+The AI endpoint requires the app's existing signed-in bearer token and verifies it
+against `AUTH_INTROSPECTION_URL` before forwarding any request; the verifier's
+response body is discarded. When a user enables AI analysis, chart candles and each
+submitted question are sent to the configured service and AI provider. The app does
+not send account, order, or position data. Chat history stays in page memory. Voice input uses the browser's
+speech-recognition service and may be processed by the browser vendor; spoken replies
+use the browser's local speech-synthesis capability when available. AI output is
+educational and is not trading advice.
+
 ## Configuration
 
 Everything works with no configuration. Optional environment variables:
@@ -694,9 +747,11 @@ Everything works with no configuration. Optional environment variables:
 | --- | --- |
 | `VITE_ADAPTER` | Set to `binance` to run the demo against live Binance prices |
 | `VITE_API_URL` | Base URL used by the legacy HTTP client in `src/services/api/` |
+| `VITE_AI_API_URL` | Optional HTTPS origin for the separately hosted AI service |
 
 **open-charting ships no analytics or telemetry.** Nothing leaves the browser
-except the requests your adapter makes, and the TradingView embeds below.
+except requests your adapter makes, the TradingView embeds below, and—only when the
+optional AI layer is enabled—chart data and questions sent to the configured AI service.
 
 Note that the Calendar tab and the technical-analysis gauge load TradingView's
 embed scripts from TradingView's CDN — they need no key, but they are third-party
@@ -708,13 +763,15 @@ network requests. Drop those components if you want a strictly offline build.
 | --- | --- |
 | `npm run dev` | Start the Vite dev server |
 | `npm run dev:ci` | Dev server bound to `0.0.0.0:5173` |
+| `npm run ai:server` | Start the optional AI sidecar on port 8787 |
+| `npm run test:ai-server` | Run the AI service validation tests |
 | `npm run build` | Production build to `dist/` |
 | `npm run check:size` | Fail if the first-load payload exceeds its budget (run after `build`) |
 | `npm run build:lib` | Build the npm package into `dist-lib/` (fails if any CSS escapes the scope) |
 | `npm run check:package` | Verify the package matches its `exports` (run after `build:lib`) |
 | `npm run preview` | Preview the production build |
 | `npm run typecheck` | Type-check the project with `tsc` |
-| `npm run test` | Run the Vitest unit tests |
+| `npm run test` | Run frontend Vitest tests and AI service Node tests |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run lint` | ESLint 9 (flat config in `eslint.config.js`) |
 | `node scripts/fetch-demo-data.mjs` | Refresh bundled real OHLC |

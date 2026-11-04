@@ -57,6 +57,8 @@
   "scripts": {
     "dev": "vite",
     "dev:ci": "vite --host 0.0.0.0 --port 5173",
+    "ai:server": "node server/ai-service.mjs",
+    "test:ai-server": "node --test server/ai-service.test.mjs",
     "build": "vite build",
     "check:size": "node scripts/check-bundle-size.mjs",
     "build:lib": "vite build --config vite.lib.config.ts && node scripts/build-lib-css.mjs",
@@ -64,7 +66,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "test": "vitest run",
+    "test": "vitest run && node --test server/ai-service.test.mjs",
     "test:watch": "vitest",
     "prepublishOnly": "npm run typecheck && npm run lint -- --max-warnings=0 && npm run test && npm run build:lib && npm run check:package"
   },

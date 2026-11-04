@@ -419,6 +419,13 @@ function EventsTab({
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ict")}
       />
+      <ToggleRow
+        label="AI analysis"
+        hint="Separate AI chart markers and a text / voice discussion panel under the chart"
+        checked={activePlugins.includes("ai")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("ai")}
+      />
       <SectionTitle>News</SectionTitle>
       <button
         onClick={() => {

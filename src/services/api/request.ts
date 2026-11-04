@@ -59,6 +59,11 @@ async function tryTokenRefresh(): Promise<string | null> {
   return _refreshPromise;
 }
 
+/** Refresh the existing app session for callers that use a separate API origin. */
+export async function refreshAccessToken(): Promise<string | null> {
+  return tryTokenRefresh();
+}
+
 async function resolveResponse<T>(res: Response): Promise<T> {
   const json = await res.json().catch(() => null);
   if (!res.ok) {

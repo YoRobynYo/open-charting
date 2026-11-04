@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_AI_API_URL?: string;
+}
+
 interface GoogleAccountsId {
   initialize(config: {
     client_id: string;
