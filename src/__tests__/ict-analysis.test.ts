@@ -35,7 +35,7 @@ describe("detectIctEvents", () => {
     ]);
 
     expect(detectIctEvents(data)).toContainEqual(
-      expect.objectContaining({ kind: "bos", direction: "bullish", time: 6, price: 10 }),
+      expect.objectContaining({ kind: "bos", direction: "bullish", time: 6, price: 10, breakPrice: 11 }),
     );
   });
 

@@ -29,6 +29,7 @@ export interface IctEvent {
   startTime?: number;
   endTime?: number;
   price?: number;
+  breakPrice?: number;
   zoneLow?: number;
   zoneHigh?: number;
 }
@@ -114,6 +115,7 @@ export function detectIctEvents(
         time: current.time,
         startTime: candles[activeHigh.index]!.time,
         price: activeHigh.price,
+        breakPrice: current.close,
       });
       bias = "bullish";
       brokenHighIndex = activeHigh.index;
@@ -128,6 +130,7 @@ export function detectIctEvents(
         time: current.time,
         startTime: candles[activeLow.index]!.time,
         price: activeLow.price,
+        breakPrice: current.close,
       });
       bias = "bearish";
       brokenLowIndex = activeLow.index;
@@ -260,7 +263,7 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.setLineDash([]);
           const label = event.kind.toUpperCase();
           const labelX = event.labelX ?? (event.x + event.x2) / 2;
-          const labelY = event.y;
+          const labelY = (event.y + event.y2) / 2;
           const width = ctx.measureText(label).width + 8;
           ctx.fillStyle = "rgba(10,10,10,0.78)";
           ctx.fillRect(labelX - width / 2, labelY - 8, width, 16);
@@ -313,16 +316,18 @@ class IctPaneView implements ISeriesPrimitivePaneView {
         const start = event.startTime ?? event.time;
         const x1 = coordinateOrEdge(timeScale, start, visibleRange, width, "left");
         const x2 = coordinateOrEdge(timeScale, event.time, visibleRange, width, "right");
-        const y = series.priceToCoordinate(event.price);
-        if (x1 === null || x2 === null || y === null) continue;
+        const y1 = series.priceToCoordinate(event.price);
+        const y2 = series.priceToCoordinate(event.breakPrice ?? event.price);
+        if (x1 === null || x2 === null || y1 === null || y2 === null) continue;
+        const labelX = (x1 + x2) / 2;
         this.rendered.push({
           kind: event.kind,
           direction: event.direction,
           x: x1,
           x2,
-          labelX: (x1 + x2) / 2,
-          y,
-          y2: y,
+          labelX,
+          y: y1,
+          y2,
           label: event.kind.toUpperCase(),
         });
         continue;
