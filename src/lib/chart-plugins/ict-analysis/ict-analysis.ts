@@ -29,7 +29,6 @@ export interface IctEvent {
   startTime?: number;
   endTime?: number;
   price?: number;
-  breakPrice?: number;
   zoneLow?: number;
   zoneHigh?: number;
 }
@@ -115,7 +114,6 @@ export function detectIctEvents(
         time: current.time,
         startTime: candles[activeHigh.index]!.time,
         price: activeHigh.price,
-        breakPrice: current.close,
       });
       bias = "bullish";
       brokenHighIndex = activeHigh.index;
@@ -130,7 +128,6 @@ export function detectIctEvents(
         time: current.time,
         startTime: candles[activeLow.index]!.time,
         price: activeLow.price,
-        breakPrice: current.close,
       });
       bias = "bearish";
       brokenLowIndex = activeLow.index;
@@ -261,6 +258,12 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.lineTo(event.x2, event.y2);
           ctx.stroke();
           ctx.setLineDash([]);
+          ctx.fillStyle = color;
+          for (const endpointX of [event.x, event.x2]) {
+            ctx.beginPath();
+            ctx.arc(endpointX, event.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
           const label = event.kind.toUpperCase();
           const labelX = event.labelX ?? (event.x + event.x2) / 2;
           const labelY = (event.y + event.y2) / 2;
@@ -316,9 +319,8 @@ class IctPaneView implements ISeriesPrimitivePaneView {
         const start = event.startTime ?? event.time;
         const x1 = coordinateOrEdge(timeScale, start, visibleRange, width, "left");
         const x2 = coordinateOrEdge(timeScale, event.time, visibleRange, width, "right");
-        const y1 = series.priceToCoordinate(event.price);
-        const y2 = series.priceToCoordinate(event.breakPrice ?? event.price);
-        if (x1 === null || x2 === null || y1 === null || y2 === null) continue;
+        const y = series.priceToCoordinate(event.price);
+        if (x1 === null || x2 === null || y === null) continue;
         const labelX = (x1 + x2) / 2;
         this.rendered.push({
           kind: event.kind,
@@ -326,8 +328,8 @@ class IctPaneView implements ISeriesPrimitivePaneView {
           x: x1,
           x2,
           labelX,
-          y: y1,
-          y2,
+          y,
+          y2: y,
           label: event.kind.toUpperCase(),
         });
         continue;
