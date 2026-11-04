@@ -212,7 +212,8 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const labelEvents = this.events.filter((event) => event.kind !== "fvg" && event.kind !== "ifvg");
+      const labelEvents = this.events.filter((event) =>
+        event.kind === "swing-high" || event.kind === "swing-low");
       const labelPositions = layoutAnnotationLabels(
         labelEvents.map((event) => ({
           x: event.labelX ?? event.x,
@@ -258,8 +259,8 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.stroke();
           ctx.setLineDash([]);
           const label = event.kind.toUpperCase();
-          const labelX = event.labelX ?? event.x2;
-          const labelY = labelYByEvent.get(event) ?? event.y;
+          const labelX = event.labelX ?? (event.x + event.x2) / 2;
+          const labelY = event.y;
           const width = ctx.measureText(label).width + 8;
           ctx.fillStyle = "rgba(10,10,10,0.78)";
           ctx.fillRect(labelX - width / 2, labelY - 8, width, 16);
@@ -319,7 +320,7 @@ class IctPaneView implements ISeriesPrimitivePaneView {
           direction: event.direction,
           x: x1,
           x2,
-          labelX: x2,
+          labelX: (x1 + x2) / 2,
           y,
           y2: y,
           label: event.kind.toUpperCase(),
