@@ -66,7 +66,7 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   drawingMagnet: false,
   magnetMode: "none",
   stayInDrawingMode: false,
-  activePlugins: [],
+  activePlugins: ["ict"],
   candleUpColor: "",
   candleDownColor: "",
   colorBackground: "",
