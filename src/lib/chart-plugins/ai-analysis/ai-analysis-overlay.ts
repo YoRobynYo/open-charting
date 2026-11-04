@@ -7,6 +7,7 @@ import type {
 } from "lightweight-charts";
 import type { AiChartPoint } from "../../../services/ai-analysis.ts";
 import { PluginBase } from "../plugin-base.ts";
+import { layoutAnnotationLabels } from "../annotation-label-layout.ts";
 
 interface PositionedAiPoint extends AiChartPoint {
   x: number;
@@ -30,8 +31,19 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.scale(scope.horizontalPixelRatio, scope.verticalPixelRatio);
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textBaseline = "middle";
+      const labelPositions = layoutAnnotationLabels(
+        this.points.map((point) => ({
+          x: point.x + 9,
+          y: point.y - 9,
+          width: ctx.measureText(point.label.slice(0, 24)).width + 10,
+        })),
+        {
+          width: scope.bitmapSize.width / scope.horizontalPixelRatio,
+          height: scope.bitmapSize.height / scope.verticalPixelRatio,
+        },
+      );
 
-      for (const point of this.points) {
+      for (const [index, point] of this.points.entries()) {
         const color = POINT_COLORS[point.kind];
         ctx.strokeStyle = "rgba(9, 12, 18, 0.95)";
         ctx.lineWidth = 3;
@@ -44,7 +56,7 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
         const label = point.label.slice(0, 24);
         const labelWidth = ctx.measureText(label).width + 10;
         const labelX = point.x + 9;
-        const labelY = point.y - 9;
+        const labelY = labelPositions[index]!.labelY;
         ctx.fillStyle = "rgba(9, 12, 18, 0.88)";
         ctx.fillRect(labelX, labelY - 8, labelWidth, 16);
         ctx.fillStyle = color;

@@ -8,6 +8,7 @@ import type {
   Time,
 } from "lightweight-charts";
 import { PluginBase } from "../plugin-base";
+import { layoutAnnotationLabels } from "../annotation-label-layout.ts";
 
 export interface IctCandle {
   time: number;
@@ -210,6 +211,19 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
+      const labelEvents = this.events.filter((event) => event.kind !== "fvg" && event.kind !== "ifvg");
+      const labelPositions = layoutAnnotationLabels(
+        labelEvents.map((event) => ({
+          x: event.kind === "bos" || event.kind === "choch" ? (event.x + event.x2) / 2 : event.x,
+          y: event.y,
+          width: ctx.measureText(event.label).width + 10,
+        })),
+        {
+          width: scope.bitmapSize.width / scope.horizontalPixelRatio,
+          height: scope.bitmapSize.height / scope.verticalPixelRatio,
+        },
+      );
+      const labelYByEvent = new Map(labelEvents.map((event, index) => [event, labelPositions[index]!.labelY]));
 
       for (const event of this.events) {
         const bullish = event.direction === "bullish";
@@ -244,16 +258,18 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.setLineDash([]);
           const label = event.kind.toUpperCase();
           const mid = (event.x + event.x2) / 2;
+          const labelY = labelYByEvent.get(event) ?? event.y;
           const width = ctx.measureText(label).width + 8;
           ctx.fillStyle = "rgba(10,10,10,0.78)";
-          ctx.fillRect(mid - width / 2, event.y - 8, width, 16);
+          ctx.fillRect(mid - width / 2, labelY - 8, width, 16);
           ctx.fillStyle = color;
-          ctx.fillText(label, mid, event.y);
+          ctx.fillText(label, mid, labelY);
           continue;
         }
 
         ctx.fillStyle = color;
-        ctx.fillText(event.label, event.x, event.y);
+        const labelY = labelYByEvent.get(event) ?? event.y;
+        ctx.fillText(event.label, event.x, labelY);
       }
       ctx.restore();
     });
