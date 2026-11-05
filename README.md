@@ -211,23 +211,23 @@ Open the printed local URL (e.g. `http://localhost:5173`). The app boots straigh
 into a session with a funded paper account — pick a symbol from the watchlist,
 set a size in the order ticket, and go long or short.
 
-### Enable local AI chat
+### Start the chart and optional AI chat
 
-The HH/HL/LH/LL structure labels work without a provider. To enable the AI text
-conversation and AI-proposed swing candidates, use a separate terminal and configure
-your own provider key on your computer:
+Use one command to start the chart and local AI service together:
 
 ```bash
-cp .env.example .env
-# Edit .env and replace OPENAI_API_KEY with your own provider key.
-npm run ai:server:local
+npm run dev:all
 ```
 
-Keep that terminal running alongside `npm run dev`. Local mode binds the AI sidecar
-to `127.0.0.1`, does not require a separate sign-in backend, and keeps the key out
-of browser code. Provider usage may incur charges. Do not enable `AI_LOCAL_DEV` on a
-publicly reachable server. The local command uses Node's `--env-file` support (Node
-20.6 or later).
+On first run, it creates a private, Git-ignored `.env` file and asks for your
+OpenAI-compatible provider key with hidden input. Paste your own key to enable the
+text conversation and AI swing suggestions; press Return without a key to run the
+chart only. The HH/HL/LH/LL structure labels work either way. Local mode binds the
+AI sidecar to `127.0.0.1`, does not require a separate sign-in backend, and does not
+expose the provider key to browser code. Provider usage may incur charges. Do not
+enable `AI_LOCAL_DEV` on a publicly reachable server. The key is saved with
+owner-only permissions in the Git-ignored `.env` file. This command uses Node's
+`--env-file` support (Node 20.6 or later); press Ctrl+C to stop both services.
 
 To build for production:
 

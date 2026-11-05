@@ -56,6 +56,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:all": "bash scripts/dev-with-ai.sh",
     "dev:ci": "vite --host 0.0.0.0 --port 5173",
     "ai:server": "node server/ai-service.mjs",
     "ai:server:local": "node --env-file=.env server/ai-service.mjs",

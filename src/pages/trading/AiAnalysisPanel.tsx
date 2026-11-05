@@ -397,9 +397,9 @@ export function AiAnalysisPanel({
       <div className="flex items-center justify-between gap-2 px-3 pb-2 text-xs text-muted-foreground">
         <span className={error ? "text-rose-500" : "truncate"} role={error ? "alert" : undefined}>
           {error || (connection === "missing"
-            ? "AI chat is not configured. For local use, copy .env.example to .env, add your provider key, then run npm run ai:server:local."
+            ? "For AI chat, stop this terminal and run npm run dev:all. It will ask for your provider key privately; press Return to skip AI."
             : connection === "offline"
-              ? "AI server not reachable. Start npm run ai:server:local in another terminal, then reopen this layer."
+              ? "AI server not reachable. Stop the current terminal and run npm run dev:all to start chart and AI together."
               : "Educational only—not trading advice. Chart data and questions go to the configured AI service.")}
         </span>
         <span className="hidden shrink-0 sm:inline">Voice input uses your browser speech service.</span>
