@@ -21,6 +21,8 @@ const POINT_COLORS: Record<AiChartPoint["kind"], string> = {
   caution: "#f5b942",
   "potential-swing-high": "#f5b942",
   "potential-swing-low": "#a78bfa",
+  "structure-high": "#f5b942",
+  "structure-low": "#a78bfa",
 };
 
 class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
@@ -31,13 +33,13 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
       const ctx = scope.context;
       ctx.save();
       ctx.scale(scope.horizontalPixelRatio, scope.verticalPixelRatio);
-      ctx.font = "10px 'JetBrains Mono', monospace";
+      ctx.font = "11px 'JetBrains Mono', monospace";
       ctx.textBaseline = "middle";
       const chartWidth = scope.bitmapSize.width / scope.horizontalPixelRatio;
       const labelPositions = layoutAnnotationLabels(
         this.points.map((point) => ({
           x: point.x + 9,
-          y: point.y - 9,
+          y: point.y + (point.kind === "structure-low" ? 13 : -13),
           width: ctx.measureText(displayLabel(point)).width + 10,
         })),
         {
@@ -45,6 +47,26 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
           height: scope.bitmapSize.height / scope.verticalPixelRatio,
         },
       );
+
+      for (const kind of ["structure-high", "structure-low"] as const) {
+        const pivots = this.points
+          .filter((point) => point.kind === kind)
+          .sort((a, b) => a.x - b.x);
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash([3, 3]);
+        for (let index = 1; index < pivots.length; index += 1) {
+          const previous = pivots[index - 1]!;
+          const current = pivots[index]!;
+          ctx.strokeStyle = current.price >= previous.price
+            ? "rgba(14, 203, 129, 0.6)"
+            : "rgba(246, 70, 93, 0.6)";
+          ctx.beginPath();
+          ctx.moveTo(previous.x, previous.y);
+          ctx.lineTo(current.x, current.y);
+          ctx.stroke();
+        }
+      }
+      ctx.setLineDash([]);
 
       for (const [index, point] of this.points.entries()) {
         const color = POINT_COLORS[point.kind];

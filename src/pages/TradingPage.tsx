@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
@@ -9,6 +9,7 @@ import { updateChartPreferences } from "../hooks/useChartPreferences.ts";
 import { useTradingStore } from "../services/store.tsx";
 import { useTerminal } from "../terminal/use-terminal.ts";
 import type { AiChartPoint } from "../services/ai-analysis.ts";
+import { detectAiSwingStructure } from "../lib/chart-plugins/ai-analysis/ai-swing-structure.ts";
 import { AiAnalysisPanel } from "./trading/AiAnalysisPanel.tsx";
 import { BottomPanel } from "./trading/BottomPanel.tsx";
 import { ChartPanel } from "./trading/ChartPanel.tsx";
@@ -106,6 +107,10 @@ export function TradingPage() {
     context: "",
     points: [],
   });
+  const [aiPanelHeight, setAiPanelHeight] = useState(() => {
+    const saved = Number.parseInt(safeStorage.getItem("aiPanelHeight") ?? "", 10);
+    return Number.isFinite(saved) ? Math.max(220, Math.min(440, saved)) : 300;
+  });
 
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
@@ -115,6 +120,9 @@ export function TradingPage() {
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
+  const aiResizingRef = useRef(false);
+  const aiResizeStartY = useRef(0);
+  const aiResizeStartH = useRef(0);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -150,6 +158,37 @@ export function TradingPage() {
     [bottomPanelHeight],
   );
 
+  const handleAiResizeStart = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      aiResizingRef.current = true;
+      aiResizeStartY.current = "touches" in e ? e.touches[0]!.clientY : e.clientY;
+      aiResizeStartH.current = aiPanelHeight;
+
+      const onMove = (ev: MouseEvent | TouchEvent) => {
+        if (!aiResizingRef.current) return;
+        const y = "touches" in ev ? ev.touches[0]!.clientY : (ev as MouseEvent).clientY;
+        setAiPanelHeight(Math.max(220, Math.min(440, aiResizeStartH.current + aiResizeStartY.current - y)));
+      };
+      const onUp = () => {
+        aiResizingRef.current = false;
+        setAiPanelHeight((height) => {
+          safeStorage.setItem("aiPanelHeight", String(height));
+          return height;
+        });
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onUp);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      window.addEventListener("touchmove", onMove, { passive: false });
+      window.addEventListener("touchend", onUp);
+    },
+    [aiPanelHeight],
+  );
+
   // Loading a chart template swaps the whole indicator list; the toolbar's
   // own menu toggles one at a time.
   const setIndicators = useCallback(
@@ -160,10 +199,19 @@ export function TradingPage() {
     [activeIndicators, toggleIndicator],
   );
   const ticks = useTradingStore((s) => s.ticks);
-  const displayedCandles = replayCandles ?? candles ?? [];
+  const displayedCandles = useMemo(() => replayCandles ?? candles ?? [], [candles, replayCandles]);
   const displayedTimeframe = replayCandles ? "1m" : timeframe;
   const chartContextKey = `${selectedSymbol}:${displayedTimeframe}:${replayCandles ? "replay" : "live"}`;
-  const aiPoints = aiPointState.context === chartContextKey ? aiPointState.points : [];
+  const aiPoints = useMemo(
+    () => aiPointState.context === chartContextKey ? aiPointState.points : [],
+    [aiPointState, chartContextKey],
+  );
+  const chartAiPoints = useMemo(
+    () => activePlugins.includes("ai")
+      ? [...detectAiSwingStructure(displayedCandles), ...aiPoints]
+      : aiPoints,
+    [activePlugins, aiPoints, displayedCandles],
+  );
   const onAiPointsChange = useCallback(
     (points: AiChartPoint[]) => setAiPointState({ context: chartContextKey, points }),
     [chartContextKey],
@@ -252,7 +300,7 @@ export function TradingPage() {
               replayTradeEvents={replayTradeEvents}
               isReplaying={isReplaying}
               activePlugins={activePlugins}
-              aiPoints={aiPoints}
+              aiPoints={chartAiPoints}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
               accountId={activeAccountId}
@@ -262,9 +310,33 @@ export function TradingPage() {
             />
           </div>
 
+          {activePlugins.includes("ai") && (
+            <div
+              role="separator"
+              aria-label="Resize AI conversation panel"
+              aria-orientation="horizontal"
+              aria-valuenow={aiPanelHeight}
+              aria-valuemin={220}
+              aria-valuemax={440}
+              tabIndex={0}
+              onMouseDown={handleAiResizeStart}
+              onTouchStart={handleAiResizeStart}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setAiPanelHeight((height) => Math.max(220, Math.min(440, height + (event.key === "ArrowUp" ? 20 : -20))));
+                }
+              }}
+              className="hidden h-2 shrink-0 cursor-row-resize items-center justify-center border-t border-border bg-secondary/30 transition-colors hover:bg-primary/20 active:bg-primary/30 md:flex touch-none"
+              title="Drag to resize the AI conversation panel"
+            >
+              <div className="h-0.5 w-10 rounded-full bg-border" />
+            </div>
+          )}
           <AiAnalysisPanel
             key={chartContextKey}
             visible={activePlugins.includes("ai")}
+            height={aiPanelHeight}
             symbol={selectedSymbol}
             timeframe={displayedTimeframe}
             candles={displayedCandles}

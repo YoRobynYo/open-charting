@@ -8,7 +8,9 @@ export type AiPointKind =
   | "level"
   | "caution"
   | "potential-swing-high"
-  | "potential-swing-low";
+  | "potential-swing-low"
+  | "structure-high"
+  | "structure-low";
 
 export interface AiChartPoint {
   time: number;
@@ -56,19 +58,18 @@ export async function requestAiAnalysis(payload: AiChatRequest): Promise<AiChatR
   const timeout = window.setTimeout(() => controller.abort(), 45_000);
   try {
     let accessToken = safeStorage.getItem("access_token");
-    if (!accessToken) throw new AiServiceError("Sign in to use AI chart analysis.", 401);
     const url = `${AI_API_ORIGIN}/api/ai/chat`;
-    const send = (token: string) => fetch(url, {
+    const send = (token: string | null) => fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
     let response = await send(accessToken);
-    if (response.status === 401) {
+    if (response.status === 401 && accessToken) {
       const refreshedToken = await refreshAccessToken();
       if (!refreshedToken) {
         window.dispatchEvent(new CustomEvent("session:expired"));

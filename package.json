@@ -58,6 +58,7 @@
     "dev": "vite",
     "dev:ci": "vite --host 0.0.0.0 --port 5173",
     "ai:server": "node server/ai-service.mjs",
+    "ai:server:local": "node --env-file=.env server/ai-service.mjs",
     "test:ai-server": "node --test server/ai-service.test.mjs",
     "build": "vite build",
     "check:size": "node scripts/check-bundle-size.mjs",

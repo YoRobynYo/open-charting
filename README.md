@@ -88,12 +88,11 @@ a theme, a bug report or a docs fix — see
   close-confirmed BOS / CHoCH, and three-candle FVG / iFVG zones. Toggle it from
   Chart Plugins or chart settings; annotations appear only on the chart overlay.
 - **AI analysis layer** (off until enabled): AI chart markers plus a text and voice
-  conversation panel beneath the chart. It uses an optional server-side AI service;
-  the base chart continues to work without it. When configured, the assistant may mark
-  up to one potential swing high and low from recent candle evidence as dashed candidate
-  levels extending from the latest candle. These are hypotheses within the observed chart
-  range, not confirmed pivots or guaranteed predictions; the assistant explains evidence
-  and what would confirm or invalidate each candidate.
+  conversation panel beneath the chart. Confirmed candle pivots are labelled SH/SL and
+  HH/HL/LH/LL with subtle connectors, even when the AI service is offline. When the
+  optional server-side AI service is configured, the assistant can also mark uncertain
+  potential swing levels and explain the evidence in the conversation panel. The base
+  chart continues to work without AI.
 - Chart settings dialog, right-click context menu, per-symbol preferences and
   saveable **chart templates** — all persisted to `localStorage`.
 
@@ -211,6 +210,24 @@ npm run dev
 Open the printed local URL (e.g. `http://localhost:5173`). The app boots straight
 into a session with a funded paper account — pick a symbol from the watchlist,
 set a size in the order ticket, and go long or short.
+
+### Enable local AI chat
+
+The HH/HL/LH/LL structure labels work without a provider. To enable the AI text
+conversation and AI-proposed swing candidates, use a separate terminal and configure
+your own provider key on your computer:
+
+```bash
+cp .env.example .env
+# Edit .env and replace OPENAI_API_KEY with your own provider key.
+npm run ai:server:local
+```
+
+Keep that terminal running alongside `npm run dev`. Local mode binds the AI sidecar
+to `127.0.0.1`, does not require a separate sign-in backend, and keeps the key out
+of browser code. Provider usage may incur charges. Do not enable `AI_LOCAL_DEV` on a
+publicly reachable server. The local command uses Node's `--env-file` support (Node
+20.6 or later).
 
 To build for production:
 

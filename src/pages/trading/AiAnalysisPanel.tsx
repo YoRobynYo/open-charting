@@ -22,6 +22,7 @@ import {
 
 interface AiAnalysisPanelProps {
   visible: boolean;
+  height: number;
   symbol: string;
   timeframe: string;
   candles: Candle[];
@@ -60,7 +61,7 @@ const QUICK_PROMPTS = [
   "What levels stand out on this chart?",
   "Explain the latest candles in simple terms",
 ];
-const AUTO_ANALYZE_PROMPT = "Explain the current price action and identify any plausible potential swing high or swing low areas from the recent candles. For each candidate, describe the chart evidence and what would confirm or invalidate it. Mark candidates only when there is evidence; otherwise say it is too early to call. Be clear these are uncertain hypotheses, not confirmed pivots.";
+const AUTO_ANALYZE_PROMPT = "Explain the current price action and recent swing structure. Where candle evidence supports it, explain whether swing highs/lows are forming HH, HL, LH, or LL structure, and identify any plausible potential swing high or swing low areas. For each candidate, describe the chart evidence and what would confirm or invalidate it. Mark candidates only when there is evidence; otherwise say it is too early to call. Be clear these are uncertain hypotheses, not confirmed pivots.";
 const MAX_VISIBLE_MESSAGES = 24;
 
 function connectionLabel(state: ConnectionState): string {
@@ -78,6 +79,7 @@ function connectionColor(state: ConnectionState): string {
 
 export function AiAnalysisPanel({
   visible,
+  height,
   symbol,
   timeframe,
   candles,
@@ -238,7 +240,8 @@ export function AiAnalysisPanel({
   return (
     <section
       aria-label="AI chart analysis and conversation"
-      className="flex h-[220px] shrink-0 flex-col border-t border-border bg-card/95 text-xs"
+      className="flex shrink-0 flex-col border-t border-border bg-card/95 text-sm"
+      style={{ height }}
     >
       <div className="flex min-h-9 items-center gap-2 border-b border-border px-3 py-1.5">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
@@ -247,12 +250,12 @@ export function AiAnalysisPanel({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 font-semibold text-foreground">
             AI chart analysis
-            <span className="hidden font-mono text-[10px] font-normal text-muted-foreground sm:inline">
+            <span className="hidden font-mono text-xs font-normal text-muted-foreground sm:inline">
               {symbol} · {timeframe}
             </span>
           </div>
         </div>
-        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title={connectionLabel(connection)}>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={connectionLabel(connection)}>
           <span className={`h-1.5 w-1.5 rounded-full ${connectionColor(connection)}`} />
           <span className="hidden sm:inline">{connectionLabel(connection)}</span>
         </span>
@@ -293,9 +296,8 @@ export function AiAnalysisPanel({
           <div className="flex h-full flex-col justify-center gap-2">
             <div className="flex items-start gap-2 text-muted-foreground">
               <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              <p>
-                Ask about this chart or start with a quick read. The assistant receives up to 120 recent candles;
-                potential swing points are hypotheses, not confirmed pivots, and are checked against the displayed range.
+              <p className="text-sm leading-6">
+                The chart labels confirmed pivots as HH, HL, LH, or LL. Ask for a plain-language explanation or a possible next swing; AI swing ideas are uncertain, not confirmed pivots.
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -303,7 +305,7 @@ export function AiAnalysisPanel({
                 type="button"
                 onClick={() => void sendMessage(AUTO_ANALYZE_PROMPT)}
                 disabled={pending || connection === "missing" || connection === "offline"}
-                className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" /> Analyse chart</span>
               </button>
@@ -313,7 +315,7 @@ export function AiAnalysisPanel({
                   type="button"
                   onClick={() => void sendMessage(prompt)}
                   disabled={pending || connection === "missing" || connection === "offline"}
-                  className="rounded-full border border-border px-2.5 py-1 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {prompt}
                 </button>
@@ -324,7 +326,7 @@ export function AiAnalysisPanel({
         {messages.map((message, index) => (
           <div key={`${index}-${message.role}`} className={`mb-2 flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[88%] rounded-lg px-2.5 py-1.5 leading-relaxed ${message.role === "user" ? "bg-primary/15 text-foreground" : "bg-secondary/75 text-foreground"}`}>
-              <div className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {message.role === "user" ? "You" : "Chart assistant"}
               </div>
               <p className="whitespace-pre-wrap">{message.content}</p>
@@ -332,7 +334,7 @@ export function AiAnalysisPanel({
                 <button
                   type="button"
                   onClick={() => speak(message.content)}
-                  className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
                   aria-label="Speak this reply"
                 >
                   <Volume2 className="h-3 w-3" /> Speak
@@ -380,7 +382,7 @@ export function AiAnalysisPanel({
           rows={1}
           placeholder="Ask why a level matters, or how a pattern formed…"
           aria-label="Ask the chart assistant"
-          className="max-h-16 min-h-8 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+          className="max-h-20 min-h-10 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
         <button
           type="submit"
@@ -392,12 +394,12 @@ export function AiAnalysisPanel({
           <Send className="h-4 w-4" />
         </button>
       </form>
-      <div className="flex items-center justify-between gap-2 px-3 pb-1.5 text-[9px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 px-3 pb-2 text-xs text-muted-foreground">
         <span className={error ? "text-rose-500" : "truncate"} role={error ? "alert" : undefined}>
           {error || (connection === "missing"
-            ? "Set OPENAI_API_KEY, OPENAI_MODEL, and AUTH_INTROSPECTION_URL in the AI server environment."
+            ? "AI chat is not configured. For local use, copy .env.example to .env, add your provider key, then run npm run ai:server:local."
             : connection === "offline"
-              ? "AI server not reachable. Start it with npm run ai:server, then try opening this layer again."
+              ? "AI server not reachable. Start npm run ai:server:local in another terminal, then reopen this layer."
               : "Educational only—not trading advice. Chart data and questions go to the configured AI service.")}
         </span>
         <span className="hidden shrink-0 sm:inline">Voice input uses your browser speech service.</span>

@@ -125,6 +125,30 @@ test("reports an unconfigured server without exposing any credential material", 
   });
 });
 
+test("allows unauthenticated AI chat only in loopback local mode", async () => {
+  let providerAuthorization;
+  await withServer({
+    env: { AI_LOCAL_DEV: "true", OPENAI_API_KEY: "local-secret", OPENAI_MODEL: "test-model" },
+    logger: { error() {} },
+    fetchImpl: async (_url, options) => {
+      providerAuthorization = options.headers.Authorization;
+      return providerResponse({ reply: "The chart has a confirmed swing high.", points: [] });
+    },
+  }, async (baseUrl) => {
+    const health = await fetch(`${baseUrl}/api/ai/health`).then((response) => response.json());
+    assert.deepEqual(health, { ok: true, configured: true });
+
+    const response = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:5173" },
+      body: JSON.stringify(goodRequest()),
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).reply, "The chart has a confirmed swing high.");
+    assert.equal(providerAuthorization, "Bearer local-secret");
+  });
+});
+
 test("requires a signed-in app session before the provider can be called", async () => {
   let providerCalled = false;
   const authUrl = "https://auth.example/api/auth/preferences";
