@@ -2,7 +2,13 @@ import type { Candle } from "./schemas.ts";
 import { safeStorage } from "../lib/safe-storage.ts";
 import { refreshAccessToken } from "./api/request.ts";
 
-export type AiPointKind = "bullish" | "bearish" | "level" | "caution";
+export type AiPointKind =
+  | "bullish"
+  | "bearish"
+  | "level"
+  | "caution"
+  | "potential-swing-high"
+  | "potential-swing-low";
 
 export interface AiChartPoint {
   time: number;

@@ -84,12 +84,16 @@ a theme, a bug report or a docs fix — see
 - Volume histogram, OHLC legend, live bid/ask price lines, crosshair and bar countdown.
 - Toggleable chart plugins: crosshair highlight, session highlighting, session
   breaks, bands indicator, ICT structure, AI analysis, OHLCV tooltip and delta (multi-touch) tooltip.
-- **ICT structure layer** (off until enabled): two-bar-confirmed swing highs/lows,
+- **ICT structure layer** (on by default for new chart preferences): two-bar-confirmed swing highs/lows,
   close-confirmed BOS / CHoCH, and three-candle FVG / iFVG zones. Toggle it from
   Chart Plugins or chart settings; annotations appear only on the chart overlay.
 - **AI analysis layer** (off until enabled): AI chart markers plus a text and voice
   conversation panel beneath the chart. It uses an optional server-side AI service;
-  the base chart continues to work without it.
+  the base chart continues to work without it. When configured, the assistant may mark
+  up to one potential swing high and low from recent candle evidence as dashed candidate
+  levels extending from the latest candle. These are hypotheses within the observed chart
+  range, not confirmed pivots or guaranteed predictions; the assistant explains evidence
+  and what would confirm or invalidate each candidate.
 - Chart settings dialog, right-click context menu, per-symbol preferences and
   saveable **chart templates** — all persisted to `localStorage`.
 

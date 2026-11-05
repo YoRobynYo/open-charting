@@ -56,11 +56,11 @@ type SpeechWindow = Window & {
 type ConnectionState = "checking" | "ready" | "missing" | "offline";
 
 const QUICK_PROMPTS = [
-  "Summarise the recent price action",
+  "Where could a potential swing high or low form?",
   "What levels stand out on this chart?",
   "Explain the latest candles in simple terms",
 ];
-const AUTO_ANALYZE_PROMPT = "Analyse the current chart briefly. Explain the recent price action, call out up to five notable chart points, and state what remains uncertain.";
+const AUTO_ANALYZE_PROMPT = "Explain the current price action and identify any plausible potential swing high or swing low areas from the recent candles. For each candidate, describe the chart evidence and what would confirm or invalidate it. Mark candidates only when there is evidence; otherwise say it is too early to call. Be clear these are uncertain hypotheses, not confirmed pivots.";
 const MAX_VISIBLE_MESSAGES = 24;
 
 function connectionLabel(state: ConnectionState): string {
@@ -295,7 +295,7 @@ export function AiAnalysisPanel({
               <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               <p>
                 Ask about this chart or start with a quick read. The assistant receives up to 120 recent candles;
-                any chart markers it returns are checked against the displayed data.
+                potential swing points are hypotheses, not confirmed pivots, and are checked against the displayed range.
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5">

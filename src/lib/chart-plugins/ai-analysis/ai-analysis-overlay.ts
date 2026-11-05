@@ -19,6 +19,8 @@ const POINT_COLORS: Record<AiChartPoint["kind"], string> = {
   bearish: "#f6465d",
   level: "#60a5fa",
   caution: "#f5b942",
+  "potential-swing-high": "#f5b942",
+  "potential-swing-low": "#a78bfa",
 };
 
 class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
@@ -31,29 +33,44 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.scale(scope.horizontalPixelRatio, scope.verticalPixelRatio);
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textBaseline = "middle";
+      const chartWidth = scope.bitmapSize.width / scope.horizontalPixelRatio;
       const labelPositions = layoutAnnotationLabels(
         this.points.map((point) => ({
           x: point.x + 9,
           y: point.y - 9,
-          width: ctx.measureText(point.label.slice(0, 24)).width + 10,
+          width: ctx.measureText(displayLabel(point)).width + 10,
         })),
         {
-          width: scope.bitmapSize.width / scope.horizontalPixelRatio,
+          width: chartWidth,
           height: scope.bitmapSize.height / scope.verticalPixelRatio,
         },
       );
 
       for (const [index, point] of this.points.entries()) {
         const color = POINT_COLORS[point.kind];
+        const isCandidate = point.kind === "potential-swing-high" || point.kind === "potential-swing-low";
+        if (isCandidate) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(point.x + 7, point.y);
+          ctx.lineTo(Math.max(point.x + 7, chartWidth - 4), point.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 7, 0, Math.PI * 2);
+          ctx.stroke();
+        }
         ctx.strokeStyle = "rgba(9, 12, 18, 0.95)";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = isCandidate ? 2 : 3;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.fillStyle = color;
         ctx.fill();
 
-        const label = point.label.slice(0, 24);
+        const label = displayLabel(point);
         const labelWidth = ctx.measureText(label).width + 10;
         const labelX = point.x + 9;
         const labelY = labelPositions[index]!.labelY;
@@ -66,6 +83,12 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.restore();
     });
   }
+}
+
+function displayLabel(point: AiChartPoint): string {
+  if (point.kind === "potential-swing-high") return "Potential swing high";
+  if (point.kind === "potential-swing-low") return "Potential swing low";
+  return point.label.slice(0, 24);
 }
 
 class AiAnalysisPaneView implements ISeriesPrimitivePaneView {

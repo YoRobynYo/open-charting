@@ -77,6 +77,34 @@ test("keeps only chart points tied to real candle timestamps and in-range prices
   assert.equal(result.points[0].label, "Higher low");
 });
 
+test("accepts at most one potential swing high and low at chart-supported levels", () => {
+  const candles = makeCandles();
+  const latest = candles.at(-1);
+  const result = validateModelOutput({
+    reply: "A possible high is near prior resistance; it remains uncertain until price rejects there.",
+    points: [
+      { time: latest.time, price: 108, kind: "potential-swing-high", label: "High idea", explanation: "Prior high may reject; a close above it invalidates this idea." },
+      { time: latest.time, price: 100, kind: "potential-swing-low", label: "Low idea", explanation: "A prior reaction area may hold; acceptance below it invalidates the idea." },
+      { time: latest.time, price: 108, kind: "potential-swing-high", label: "Duplicate high", explanation: "Only one high candidate is allowed." },
+      { time: candles[2].time, price: 108, kind: "potential-swing-high", label: "Wrong time", explanation: "Candidates must attach to the newest bar." },
+      { time: latest.time, price: 109, kind: "potential-swing-high", label: "Outside chart", explanation: "Candidate is beyond the observed range." },
+    ],
+  }, candles);
+
+  const wrongSide = validateModelOutput({
+    reply: "A high candidate must be above the current close.",
+    points: [
+      { time: latest.time, price: 100, kind: "potential-swing-high", label: "Wrong side", explanation: "A high candidate must be above the latest close." },
+    ],
+  }, candles);
+
+  assert.deepEqual(result.points.map((point) => [point.kind, point.time, point.price, point.label]), [
+    ["potential-swing-high", latest.time, 108, "Potential swing high"],
+    ["potential-swing-low", latest.time, 100, "Potential swing low"],
+  ]);
+  assert.equal(wrongSide.points.length, 0);
+});
+
 test("rejects malformed provider output", () => {
   assert.throws(() => validateModelOutput({ reply: "", points: [] }, makeCandles()));
   assert.throws(() => validateModelOutput({ reply: "valid", points: Array(6).fill({}) }, makeCandles()));
