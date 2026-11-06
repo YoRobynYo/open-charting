@@ -14,7 +14,7 @@ This file preserves the project decisions the user has asked us to keep in view 
 - ICT remains an optional layer for BOS, CHoCH, FVG, iFVG, and confirmed swing highs/lows.
 - BOS/CHoCH must connect the relevant swing candle to the break candle with a horizontal line; labels on a single candle without the connector are not useful.
 - Avoid marking every candle with SH/SL or HH/HL/LH/LL. Show only sparse, meaningful labels and prevent annotation collisions.
-- Preserve the diagonal/zigzag structure line between meaningful confirmed swing points. The user specifically prefers the earlier neon zigzag connecting the useful points rather than labels on every turn.
+- Preserve the diagonal/zigzag structure line between meaningful confirmed swing points. Limit all ICT marks and connectors—including the automatic neon swing zigzag, swing labels, BOS/CHoCH, FVG and iFVG—to the three days before the latest chart candle. Manually drawn trendlines are the exception: retain a seven-day lookback. Keep saved drawing data intact.
 
 ## AI layer and screen layout
 
@@ -33,6 +33,7 @@ This file preserves the project decisions the user has asked us to keep in view 
 
 - **Published in b01cb6a:** ICT shows only the latest confirmed high and low labels in view while retaining a neon zigzag through pivots; AI structure also uses an alternating neon zigzag. AI chat text is larger, with an expand/restore button, a draggable panel up to 480 px, and a vertically scrollable chart/AI column when AI is enabled. Typecheck, zero-warning lint, 211 frontend tests, 12 backend tests, and production build passed for the scroll update.
 - **Published in d682d4e:** Coinbase Exchange REST candles and public WebSocket bid/ask ticks are available as an opt-in adapter; all six existing crypto pairs are supported, orders remain paper-only, and 30m/4h/weekly candles are aggregated locally. The live read-only conformance suite passed (14 checks), as did typecheck, zero-warning lint, 222 tests plus 12 AI-service backend tests, and production build. The default demo and AI code are unchanged.
+- **Verified, publishing now:** All ICT marks/connectors/zones, including the automatic neon swing zigzag, are restricted to the three days before the latest displayed candle; manually drawn trendlines use a seven-day window. The cutoffs follow replay data and only filter visibility—saved drawings are unchanged. Typecheck, zero-warning lint, 226 tests plus 12 backend tests, and production build passed.
 - **Later:** revisit a keyless educational Chart Coach if the user wants one instead of provider-powered chat.
 
 ## Coinbase research references

@@ -40,6 +40,7 @@ export interface IctAnalysisOptions {
 
 const DEFAULT_SWING_STRENGTH = 2;
 const MAX_RENDERED_EVENTS = 700;
+export const ICT_LOOKBACK_SECONDS = 3 * 24 * 60 * 60;
 
 /**
  * Detects confirmed two-sided pivots, close-confirmed structure breaks, and
@@ -205,6 +206,22 @@ export function selectRecentSwingLabelIds(
     ...recentByKind("swing-high"),
     ...recentByKind("swing-low"),
   ].map((event) => event.id));
+}
+
+/** Keep ICT annotations inside the rolling lookback anchored to the chart's latest candle. */
+export function filterRecentIctEvents(
+  events: readonly IctEvent[],
+  latestTime: number,
+  lookbackSeconds = ICT_LOOKBACK_SECONDS,
+): IctEvent[] {
+  const cutoff = latestTime - lookbackSeconds;
+  return events.filter((event) => {
+    if (event.time < cutoff || event.time > latestTime) return false;
+    if (event.kind === "bos" || event.kind === "choch") {
+      return (event.startTime ?? event.time) >= cutoff;
+    }
+    return true;
+  });
 }
 
 interface RenderEvent {
@@ -427,6 +444,7 @@ function coordinateOrEdge(
 export class IctAnalysis extends PluginBase {
   private readonly paneView: IctPaneView;
   private detected: IctEvent[] = [];
+  private latestCandleTime: number | null = null;
   private readonly swingStrength: number;
   private readonly excludeLastBar: boolean;
 
@@ -438,7 +456,9 @@ export class IctAnalysis extends PluginBase {
   }
 
   events(): readonly IctEvent[] {
-    return this.detected;
+    return this.latestCandleTime === null
+      ? []
+      : filterRecentIctEvents(this.detected, this.latestCandleTime);
   }
 
   paneViews(): readonly ISeriesPrimitivePaneView[] {
@@ -461,6 +481,7 @@ export class IctAnalysis extends PluginBase {
 
   private recompute(): void {
     const candles = this.series.data() as unknown as IctCandle[];
+    this.latestCandleTime = candles.at(-1)?.time ?? null;
     this.detected = detectIctEvents(
       this.excludeLastBar ? candles.slice(0, -1) : candles,
       this.swingStrength,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   detectIctEvents,
+  filterRecentIctEvents,
   selectRecentSwingLabelIds,
   type IctCandle,
   type IctEvent,
@@ -11,6 +12,40 @@ function candles(rows: Array<[number, number, number, number, number]>): IctCand
 }
 
 describe("detectIctEvents", () => {
+  it("keeps all ICT action types within three days and trims old break connectors", () => {
+    const day = 24 * 60 * 60;
+    const latest = 10 * day;
+    const cutoff = latest - 3 * day;
+    const makeEvent = (
+      id: string,
+      kind: IctEvent["kind"],
+      time: number,
+      startTime?: number,
+    ): IctEvent => ({
+      id,
+      kind,
+      time,
+      startTime,
+      direction: "bullish",
+    });
+    const events = [
+      makeEvent("old-swing", "swing-high", cutoff - 1),
+      makeEvent("edge-swing", "swing-low", cutoff),
+      makeEvent("old-bos-origin", "bos", cutoff + day, cutoff - 1),
+      makeEvent("recent-choch", "choch", cutoff + day, cutoff),
+      makeEvent("recent-fvg", "fvg", cutoff + 2 * day),
+      makeEvent("recent-ifvg", "ifvg", latest),
+      makeEvent("future-ifvg", "ifvg", latest + 1),
+    ];
+
+    expect(filterRecentIctEvents(events, latest).map(({ id }) => id)).toEqual([
+      "edge-swing",
+      "recent-choch",
+      "recent-fvg",
+      "recent-ifvg",
+    ]);
+  });
+
   it("marks two-bar-confirmed swing highs and lows", () => {
     const data = candles([
       [1, 5, 6, 4, 5],

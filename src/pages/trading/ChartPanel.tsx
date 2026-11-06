@@ -33,6 +33,7 @@ import {
   playAlertBeep,
 } from "../../lib/chart-plugins/drawing-tools/line-alerts.ts";
 import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manager.ts";
+import { isManualTrendlineInHistory } from "../../lib/chart-plugins/drawing-tools/visibility.ts";
 import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
 import { AiAnalysisOverlay } from "../../lib/chart-plugins/ai-analysis/ai-analysis-overlay.ts";
 import { IctAnalysis } from "../../lib/chart-plugins/ict-analysis/ict-analysis.ts";
@@ -1226,11 +1227,16 @@ export function ChartPanel({
     [drawings, selectedDrawingIds],
   );
 
-  // Drawings actually shown on this chart: not hidden, and either visible on
-  // all timeframes or scoped to the current one.
+  // Drawings shown on this chart: preserve visibility/timeframe settings, and
+  // keep manual trendlines to the latest seven days without mutating saved data.
+  const latestCandleTime = candles.at(-1)?.time ?? null;
   const visibleDrawings = useMemo(
-    () => drawings.filter((d) => !d.hidden && (d.visibility !== "tf" || d.createdTf === timeframe)),
-    [drawings, timeframe],
+    () => drawings.filter((d) =>
+      !d.hidden &&
+      (d.visibility !== "tf" || d.createdTf === timeframe) &&
+      isManualTrendlineInHistory(d, latestCandleTime),
+    ),
+    [drawings, timeframe, latestCandleTime],
   );
 
   // Stable refs so the chart-create effect doesn't re-run on every parent render
