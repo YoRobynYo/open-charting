@@ -268,11 +268,11 @@ export function TradingPage() {
       <MarketClosedBanner symbolInfo={symbolInfo} />
 
       {/* ── Main Layout ──────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         {/* Chart + Bottom Panel */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className={`flex min-h-0 flex-1 min-w-0 flex-col ${activePlugins.includes("ai") ? "overflow-y-auto" : "overflow-hidden"}`}>
           {/* Chart Area */}
-          <div className="flex-1 min-h-[200px] relative">
+          <div className={`relative ${activePlugins.includes("ai") ? "h-[60vh] min-h-[360px] flex-none" : "min-h-[200px] flex-1"}`}>
             <ChartPanel
               candles={displayedCandles}
               selectedSymbol={selectedSymbol}

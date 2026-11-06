@@ -20,7 +20,7 @@ This file preserves the project decisions the user has asked us to keep in view 
 
 - AI analysis remains independently switchable from the ICT layer and must not replace or modify the main chart.
 - When enabled, show candidate swing points on the chart and a discussion panel beneath it, with both text and speech controls.
-- Keep chart and conversation usable together: the AI panel needs readable text, adjustable space, and a quick expand/restore control so the chart is not permanently squeezed.
+- Keep chart and conversation usable together: when AI is enabled, the chart-and-panel column should scroll vertically so the chart is not permanently compressed to fit the conversation; the AI panel needs readable text, adjustable space, and a quick expand/restore control.
 - AI-generated swing ideas must be clearly described as uncertain, not confirmed predictions. Confirmed pivots can be explained from candle data.
 - External-provider chat requires the user's own API key; never request that secret in chat. A keyless/rules-based Chart Coach was proposed but still awaits the user's choice.
 
@@ -31,6 +31,6 @@ This file preserves the project decisions the user has asked us to keep in view 
 
 ## Status
 
-- **Verified, publishing now:** ICT shows only the latest confirmed high and low labels in view while retaining a neon zigzag through pivots; AI structure also uses an alternating neon zigzag. AI chat text is larger, with an expand/restore button and a draggable panel up to 480 px. Typecheck, lint, 211 frontend tests, 12 backend tests, and production build passed.
+- **Verified, publishing now:** ICT shows only the latest confirmed high and low labels in view while retaining a neon zigzag through pivots; AI structure also uses an alternating neon zigzag. AI chat text is larger, with an expand/restore button, a draggable panel up to 480 px, and a vertically scrollable chart/AI column when AI is enabled. Typecheck, zero-warning lint, 211 frontend tests, 12 backend tests, and production build passed for the scroll update.
 - **Later:** with the user's guidance, evaluate and implement live Coinbase market data.
 - **Later:** revisit a keyless educational Chart Coach if the user wants one instead of provider-powered chat.
