@@ -11,25 +11,30 @@ import { Terminal } from "./terminal/Terminal.tsx";
  * terminal. Everything else — query cache, market-data stream, notifications,
  * error boundary — comes from `<OpenChartsProvider>`.
  *
- * `VITE_ADAPTER=binance npm run dev` swaps in the live-market-data example from
- * examples/binance-adapter, loaded lazily so none of its code reaches the
- * default bundle.
+ * `VITE_ADAPTER=binance npm run dev` or `VITE_ADAPTER=coinbase npm run dev`
+ * swaps in an optional live-market-data example. Both adapters are loaded
+ * lazily so neither reaches the default demo bundle.
  */
 
-const wantsBinance = import.meta.env.VITE_ADAPTER === "binance";
+const adapterMode = import.meta.env.VITE_ADAPTER;
+const wantsLiveAdapter = adapterMode === "binance" || adapterMode === "coinbase";
 
 export function Root() {
   const [adapter, setAdapter] = useState<OpenChartsAdapter | null>(() =>
-    wantsBinance ? null : createDemoAdapter(),
+    wantsLiveAdapter ? null : createDemoAdapter(),
   );
 
   useEffect(() => {
-    if (!wantsBinance) return;
-    import("../examples/binance-adapter/binance-adapter.ts")
-      .then(({ createBinancePaperAdapter }) => createBinancePaperAdapter())
+    if (!wantsLiveAdapter) return;
+    const loading = adapterMode === "coinbase"
+      ? import("../examples/coinbase-adapter/coinbase-adapter.ts")
+        .then(({ createCoinbasePaperAdapter }) => createCoinbasePaperAdapter())
+      : import("../examples/binance-adapter/binance-adapter.ts")
+        .then(({ createBinancePaperAdapter }) => createBinancePaperAdapter());
+    loading
       .then(setAdapter)
       .catch((err: unknown) => {
-        console.error("[open-charting] failed to load the Binance adapter; using the demo", err);
+        console.error(`[open-charting] failed to load the ${adapterMode} adapter; using the demo`, err);
         setAdapter(createDemoAdapter());
       });
   }, []);

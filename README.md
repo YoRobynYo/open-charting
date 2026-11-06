@@ -211,6 +211,13 @@ Open the printed local URL (e.g. `http://localhost:5173`). The app boots straigh
 into a session with a funded paper account — pick a symbol from the watchlist,
 set a size in the order ticket, and go long or short.
 
+To use Coinbase's public live crypto prices instead of the bundled demo feed,
+start the app with `VITE_ADAPTER=coinbase npm run dev`. This feed does not need an
+API key; candle history and bid/ask updates come from Coinbase, while all orders
+continue to use the local paper-trading account. The default command remains the
+bundled demo. The optional Binance example is still available with
+`VITE_ADAPTER=binance npm run dev`.
+
 ### Start the chart and optional AI chat
 
 Use one command to start the chart and local AI service together:

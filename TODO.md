@@ -26,11 +26,19 @@ This file preserves the project decisions the user has asked us to keep in view 
 
 ## Local use and market data
 
-- Keep the local workflow simple: one terminal command (`npm run dev:all`) and the chart on port 5173; provider setup is optional.
-- The user wants live market prices. Coinbase should be evaluated as a possible market-data alternative to Binance in light of the user's security concerns. No exchange migration is complete until researched, implemented, and tested.
+- Keep the local workflow simple and the chart on port 5173; provider setup is optional. The live Coinbase feed can be selected with `VITE_ADAPTER=coinbase npm run dev` and requires no API key.
+- The user wants live market prices. Coinbase is an optional market-data alternative to Binance; do not replace the default demo feed unless the user asks.
 
 ## Status
 
-- **Verified, publishing now:** ICT shows only the latest confirmed high and low labels in view while retaining a neon zigzag through pivots; AI structure also uses an alternating neon zigzag. AI chat text is larger, with an expand/restore button, a draggable panel up to 480 px, and a vertically scrollable chart/AI column when AI is enabled. Typecheck, zero-warning lint, 211 frontend tests, 12 backend tests, and production build passed for the scroll update.
-- **Later:** with the user's guidance, evaluate and implement live Coinbase market data.
+- **Published in b01cb6a:** ICT shows only the latest confirmed high and low labels in view while retaining a neon zigzag through pivots; AI structure also uses an alternating neon zigzag. AI chat text is larger, with an expand/restore button, a draggable panel up to 480 px, and a vertically scrollable chart/AI column when AI is enabled. Typecheck, zero-warning lint, 211 frontend tests, 12 backend tests, and production build passed for the scroll update.
+- **Verified, ready to publish:** Coinbase Exchange REST candles and public WebSocket bid/ask ticks are available as an opt-in adapter; all six existing crypto pairs are supported, orders remain paper-only, and 30m/4h/weekly candles are aggregated locally. The live read-only conformance suite passed (14 checks), as did typecheck, zero-warning lint, 222 tests plus 12 AI-service backend tests, and production build. The default demo and AI code are unchanged.
 - **Later:** revisit a keyless educational Chart Coach if the user wants one instead of provider-powered chat.
+
+## Coinbase research references
+
+- [Coinbase Exchange API overview](https://docs.cdp.coinbase.com/exchange/introduction/welcome): market-data APIs are public; trading/account endpoints require authentication.
+- [Coinbase Exchange candle endpoint](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles): candle values arrive as `[time, low, high, open, close, volume]`; granularity choices are 1m, 5m, 15m, 1h, 6h, and 1d; each request is capped at 300 bars. The adapter therefore aggregates 30m, 4h, and weekly bars locally.
+- [Coinbase Exchange WebSocket overview](https://docs.cdp.coinbase.com/exchange/websocket-feed/overview) and [ticker channel docs](https://docs.cdp.coinbase.com/exchange/websocket-feed/channels): the traditional market-data feed is unauthenticated; ticker messages provide live updates.
+- [Coinbase public REST rate limits](https://docs.cdp.coinbase.com/exchange/rest-api/rate-limits): public endpoints are limited by IP, so candle-history requests are paginated sequentially and should not be polled aggressively.
+- A read-only request to the public BTC-USD candle endpoint succeeded during development with HTTP 200 and `Access-Control-Allow-Origin: *`. Product checks returned HTTP 200 for all six current crypto pairs: BTC-USD, ETH-USD, SOL-USD, BNB-USD, XRP-USD, and ADA-USD.
