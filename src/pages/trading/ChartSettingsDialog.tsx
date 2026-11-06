@@ -414,7 +414,7 @@ function EventsTab({
       <SectionTitle>Structure</SectionTitle>
       <ToggleRow
         label="ICT analysis"
-        hint="2-bar confirmed swings, close-confirmed BOS / CHoCH, and FVG / iFVG zones"
+        hint="BOS / CHoCH and FVG / iFVG, with a neon swing zigzag and only the latest high and low labeled"
         checked={activePlugins.includes("ict")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ict")}

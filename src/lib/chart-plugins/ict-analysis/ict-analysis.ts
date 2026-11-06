@@ -190,6 +190,23 @@ export function detectIctEvents(
   return events.sort((a, b) => a.time - b.time || a.id.localeCompare(b.id));
 }
 
+export function selectRecentSwingLabelIds(
+  events: readonly IctEvent[],
+  from = Number.NEGATIVE_INFINITY,
+  to = Number.POSITIVE_INFINITY,
+  limitPerSide = 1,
+): Set<string> {
+  const limit = Math.max(1, Math.floor(limitPerSide));
+  const recentByKind = (kind: "swing-high" | "swing-low") => events
+    .filter((event) => event.kind === kind && event.time >= from && event.time <= to)
+    .sort((a, b) => a.time - b.time)
+    .slice(-limit);
+  return new Set([
+    ...recentByKind("swing-high"),
+    ...recentByKind("swing-low"),
+  ].map((event) => event.id));
+}
+
 interface RenderEvent {
   kind: IctEventKind;
   direction: IctDirection;
@@ -199,6 +216,7 @@ interface RenderEvent {
   y: number;
   y2: number;
   label: string;
+  showLabel?: boolean;
 }
 
 class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
@@ -212,8 +230,25 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const labelEvents = this.events.filter((event) =>
-        event.kind === "swing-high" || event.kind === "swing-low");
+      const swingEvents = this.events
+        .filter((event) => event.kind === "swing-high" || event.kind === "swing-low")
+        .sort((a, b) => a.x - b.x);
+      ctx.save();
+      ctx.strokeStyle = "#39ff14";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#39ff14";
+      ctx.shadowBlur = 7;
+      for (let index = 1; index < swingEvents.length; index += 1) {
+        const previous = swingEvents[index - 1]!;
+        const current = swingEvents[index]!;
+        ctx.beginPath();
+        ctx.moveTo(previous.x, previous.y2);
+        ctx.lineTo(current.x, current.y2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const labelEvents = swingEvents.filter((event) => event.showLabel);
       const labelPositions = layoutAnnotationLabels(
         labelEvents.map((event) => ({
           x: event.labelX ?? event.x,
@@ -275,9 +310,11 @@ class IctPaneRenderer implements ISeriesPrimitivePaneRenderer {
           continue;
         }
 
-        ctx.fillStyle = color;
-        const labelY = labelYByEvent.get(event) ?? event.y;
-        ctx.fillText(event.label, event.x, labelY);
+        if (event.showLabel) {
+          ctx.fillStyle = color;
+          const labelY = labelYByEvent.get(event) ?? event.y;
+          ctx.fillText(event.label, event.x, labelY);
+        }
       }
       ctx.restore();
     });
@@ -295,6 +332,11 @@ class IctPaneView implements ISeriesPrimitivePaneView {
     const width = timeScale.width();
     const visibleRange = timeScale.getVisibleRange();
     const events = this.source.events().slice(-MAX_RENDERED_EVENTS);
+    const visibleSwingIds = selectRecentSwingLabelIds(
+      events,
+      visibleRange ? visibleRange.from as number : Number.NEGATIVE_INFINITY,
+      visibleRange ? visibleRange.to as number : Number.POSITIVE_INFINITY,
+    );
     this.rendered = [];
 
     for (const event of events) {
@@ -311,6 +353,7 @@ class IctPaneView implements ISeriesPrimitivePaneView {
           y: priceY + (event.kind === "swing-high" ? -11 : 11),
           y2: priceY,
           label: event.kind === "swing-high" ? "SH" : "SL",
+          showLabel: visibleSwingIds.has(event.id),
         });
         continue;
       }

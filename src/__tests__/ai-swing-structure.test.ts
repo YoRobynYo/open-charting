@@ -48,4 +48,14 @@ describe("detectAiSwingStructure", () => {
       [5, 2, 1],
     ]))).toEqual([]);
   });
+
+  it("caps displayed structure labels at the latest four pivots", () => {
+    const levels = [1, 2, 3, 4, 3, 2];
+    const candles = makeCandles(Array.from({ length: 50 }, (_, index) => {
+      const level = levels[index % levels.length]!;
+      return [index + 1, 100 + level, 80 + level];
+    }));
+
+    expect(detectAiSwingStructure(candles)).toHaveLength(4);
+  });
 });

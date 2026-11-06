@@ -109,7 +109,7 @@ export function TradingPage() {
   });
   const [aiPanelHeight, setAiPanelHeight] = useState(() => {
     const saved = Number.parseInt(safeStorage.getItem("aiPanelHeight") ?? "", 10);
-    return Number.isFinite(saved) ? Math.max(220, Math.min(440, saved)) : 300;
+    return Number.isFinite(saved) ? Math.max(220, Math.min(480, saved)) : 300;
   });
 
   // ── Vertical resize: chart vs bottom panel ──
@@ -168,7 +168,7 @@ export function TradingPage() {
       const onMove = (ev: MouseEvent | TouchEvent) => {
         if (!aiResizingRef.current) return;
         const y = "touches" in ev ? ev.touches[0]!.clientY : (ev as MouseEvent).clientY;
-        setAiPanelHeight(Math.max(220, Math.min(440, aiResizeStartH.current + aiResizeStartY.current - y)));
+        setAiPanelHeight(Math.max(220, Math.min(480, aiResizeStartH.current + aiResizeStartY.current - y)));
       };
       const onUp = () => {
         aiResizingRef.current = false;
@@ -317,14 +317,14 @@ export function TradingPage() {
               aria-orientation="horizontal"
               aria-valuenow={aiPanelHeight}
               aria-valuemin={220}
-              aria-valuemax={440}
+              aria-valuemax={480}
               tabIndex={0}
               onMouseDown={handleAiResizeStart}
               onTouchStart={handleAiResizeStart}
               onKeyDown={(event) => {
                 if (event.key === "ArrowUp" || event.key === "ArrowDown") {
                   event.preventDefault();
-                  setAiPanelHeight((height) => Math.max(220, Math.min(440, height + (event.key === "ArrowUp" ? 20 : -20))));
+                  setAiPanelHeight((height) => Math.max(220, Math.min(480, height + (event.key === "ArrowUp" ? 20 : -20))));
                 }
               }}
               className="hidden h-2 shrink-0 cursor-row-resize items-center justify-center border-t border-border bg-secondary/30 transition-colors hover:bg-primary/20 active:bg-primary/30 md:flex touch-none"
@@ -337,6 +337,12 @@ export function TradingPage() {
             key={chartContextKey}
             visible={activePlugins.includes("ai")}
             height={aiPanelHeight}
+            expanded={aiPanelHeight >= 420}
+            onToggleExpand={() => setAiPanelHeight((height) => {
+              const nextHeight = height >= 420 ? 300 : 460;
+              safeStorage.setItem("aiPanelHeight", String(nextHeight));
+              return nextHeight;
+            })}
             symbol={selectedSymbol}
             timeframe={displayedTimeframe}
             candles={displayedCandles}

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
   LoaderCircle,
+  Maximize2,
   Mic,
   MicOff,
+  Minimize2,
   RefreshCw,
   Send,
   Sparkles,
@@ -27,6 +29,8 @@ interface AiAnalysisPanelProps {
   timeframe: string;
   candles: Candle[];
   onPointsChange: (points: AiChartPoint[]) => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
 }
 
 interface SpeechRecognitionResultItem {
@@ -84,6 +88,8 @@ export function AiAnalysisPanel({
   timeframe,
   candles,
   onPointsChange,
+  expanded,
+  onToggleExpand,
 }: AiAnalysisPanelProps) {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -272,6 +278,15 @@ export function AiAnalysisPanel({
         )}
         <button
           type="button"
+          onClick={onToggleExpand}
+          className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          title={expanded ? "Give the chart more space" : "Give the AI conversation more space"}
+          aria-label={expanded ? "Restore AI panel size" : "Expand AI panel"}
+        >
+          {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
           onClick={() => setSpeakReplies((current) => !current)}
           className={`rounded p-1.5 hover:bg-secondary ${speakReplies ? "text-primary" : "text-muted-foreground"}`}
           title={speakReplies ? "Turn off spoken replies" : "Read new replies aloud"}
@@ -296,7 +311,7 @@ export function AiAnalysisPanel({
           <div className="flex h-full flex-col justify-center gap-2">
             <div className="flex items-start gap-2 text-muted-foreground">
               <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              <p className="text-sm leading-6">
+              <p className="text-base leading-7">
                 The chart labels confirmed pivots as HH, HL, LH, or LL. Ask for a plain-language explanation or a possible next swing; AI swing ideas are uncertain, not confirmed pivots.
               </p>
             </div>
@@ -305,7 +320,7 @@ export function AiAnalysisPanel({
                 type="button"
                 onClick={() => void sendMessage(AUTO_ANALYZE_PROMPT)}
                 disabled={pending || connection === "missing" || connection === "offline"}
-                className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" /> Analyse chart</span>
               </button>
@@ -315,7 +330,7 @@ export function AiAnalysisPanel({
                   type="button"
                   onClick={() => void sendMessage(prompt)}
                   disabled={pending || connection === "missing" || connection === "offline"}
-                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {prompt}
                 </button>
@@ -325,7 +340,7 @@ export function AiAnalysisPanel({
         )}
         {messages.map((message, index) => (
           <div key={`${index}-${message.role}`} className={`mb-2 flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[88%] rounded-lg px-2.5 py-1.5 leading-relaxed ${message.role === "user" ? "bg-primary/15 text-foreground" : "bg-secondary/75 text-foreground"}`}>
+            <div className={`max-w-[88%] rounded-lg px-3 py-2 text-base leading-7 ${message.role === "user" ? "bg-primary/15 text-foreground" : "bg-secondary/75 text-foreground"}`}>
               <div className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {message.role === "user" ? "You" : "Chart assistant"}
               </div>
@@ -382,7 +397,7 @@ export function AiAnalysisPanel({
           rows={1}
           placeholder="Ask why a level matters, or how a pattern formed…"
           aria-label="Ask the chart assistant"
-          className="max-h-20 min-h-10 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
+          className="max-h-20 min-h-10 flex-1 resize-none rounded-md border border-border bg-background px-3 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
         <button
           type="submit"

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { detectIctEvents, type IctCandle } from "../lib/chart-plugins/ict-analysis/ict-analysis.ts";
+import {
+  detectIctEvents,
+  selectRecentSwingLabelIds,
+  type IctCandle,
+  type IctEvent,
+} from "../lib/chart-plugins/ict-analysis/ict-analysis.ts";
 
 function candles(rows: Array<[number, number, number, number, number]>): IctCandle[] {
   return rows.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
@@ -21,6 +26,30 @@ describe("detectIctEvents", () => {
     const events = detectIctEvents(data);
     expect(events).toContainEqual(expect.objectContaining({ kind: "swing-high", time: 3, price: 10 }));
     expect(events).toContainEqual(expect.objectContaining({ kind: "swing-low", time: 6, price: 2 }));
+  });
+
+  it("keeps only the latest swing high and low labels in the visible range", () => {
+    const swing = (id: string, time: number, kind: "swing-high" | "swing-low"): IctEvent => ({
+      id,
+      time,
+      kind,
+      direction: kind === "swing-high" ? "bearish" : "bullish",
+      price: time,
+    });
+    const events = [
+      swing("high-4", 4, "swing-high"),
+      swing("low-7", 7, "swing-low"),
+      swing("high-1", 1, "swing-high"),
+      swing("low-2", 2, "swing-low"),
+      swing("high-3", 3, "swing-high"),
+      swing("low-4", 4, "swing-low"),
+      swing("high-8", 8, "swing-high"),
+    ];
+
+    expect([...selectRecentSwingLabelIds(events, 2, 7)]).toEqual([
+      "high-4",
+      "low-7",
+    ]);
   });
 
   it("uses candle closes to identify a break of structure", () => {

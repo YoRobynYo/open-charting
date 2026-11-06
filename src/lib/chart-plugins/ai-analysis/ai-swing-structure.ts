@@ -4,7 +4,7 @@ import { detectIctEvents } from "../ict-analysis/ict-analysis.ts";
 
 const SWING_STRENGTH = 2;
 const MAX_CANDLES = 120;
-const MAX_STRUCTURE_POINTS = 8;
+const MAX_STRUCTURE_POINTS = 4;
 
 /**
  * Return confirmed local swing pivots for the AI layer, labelled by their
