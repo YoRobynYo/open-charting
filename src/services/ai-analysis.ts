@@ -18,6 +18,8 @@ export interface AiChartPoint {
   kind: AiPointKind;
   label: string;
   explanation: string;
+  /** Structure points may remain visible while only major points shape the neon path. */
+  major?: boolean;
 }
 
 export interface AiChatMessage {

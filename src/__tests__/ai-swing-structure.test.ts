@@ -58,4 +58,26 @@ describe("detectAiSwingStructure", () => {
 
     expect(detectAiSwingStructure(candles)).toHaveLength(4);
   });
+
+  it("keeps confirmed structure points available for the neon path", () => {
+    const points = detectAiSwingStructure(makeCandles([
+      [1, 12, 9],
+      [2, 13, 10],
+      [3, 16, 11],
+      [4, 14, 10],
+      [5, 12, 7],
+      [6, 14, 8],
+      [7, 15, 9],
+      [8, 13, 9],
+      [9, 12, 8],
+      [10, 14, 10],
+      [11, 13, 9],
+      [12, 12, 8],
+    ]));
+
+    expect(points.map(({ time, label }) => [time, label])).toEqual([
+      [3, "SH"], [5, "SL"], [7, "LH"], [9, "HL"],
+    ]);
+    expect(points.every((point) => point.major === true)).toBe(true);
+  });
 });

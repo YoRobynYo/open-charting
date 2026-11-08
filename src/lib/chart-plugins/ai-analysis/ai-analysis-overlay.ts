@@ -49,7 +49,9 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
       );
 
       const pivots = this.points
-        .filter((point) => point.kind === "structure-high" || point.kind === "structure-low")
+        .filter((point) =>
+          (point.kind === "structure-high" || point.kind === "structure-low") && point.major !== false,
+        )
         .sort((a, b) => a.x - b.x);
       ctx.lineWidth = 2;
       ctx.strokeStyle = "#39ff14";
