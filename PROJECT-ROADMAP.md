@@ -294,6 +294,32 @@ Only after the chart engines are stable:
 - Reset button.
 - No real-money execution.
 
+### Milestone 8 — Multi-market educational scanner
+
+After the rules have been tested on BTC and ETH, add a scanner that evaluates the same deterministic setups across a larger Coinbase watchlist. The scanner should find educational candidates; it should not place trades automatically.
+
+Initial scanner scope:
+
+- Keep BTCUSD and ETHUSD as the primary chart markets.
+- Add a configurable watchlist of additional Coinbase crypto markets later.
+- Reuse the same candle-pattern, major-structure, liquidity, and—when enabled—session rules for every market.
+- Evaluate each market independently using its own symbol, timeframe, candle history, price, and ATR values.
+- Show only concise candidate cards rather than drawing every market on the main chart.
+- Include symbol, timeframe, current price, setup type, stage, confidence/evidence score, and the time detected.
+- Link each result to the relevant chart so the user can inspect it manually.
+- Support filters such as hammer plus engulfing, liquidity sweep plus reclaim, possible accumulation/distribution, and confirmed breakout/retest.
+- Mark results as candidate, confirmed, invalidated, or expired.
+- Avoid ranking a setup as a guaranteed winner; display the evidence and missing confirmation instead.
+- Add rate limits, stale-data warnings, and per-symbol error handling so one unavailable market does not stop the scanner.
+
+Scanner safety rules:
+
+- Paper trading only.
+- No automatic live orders.
+- No automatic copying of a BTC or ETH decision to another asset.
+- Backtest and forward-test the same rule definitions before using scanner results in the paper ledger.
+- Log the data timestamp, timeframe, rule version, and evidence that produced every result.
+
 ## Current project status
 
 Already present or partially present:
@@ -307,4 +333,4 @@ Already present or partially present:
 - AI neon connector was temporarily removed for visibility; the next milestone restores it in a cleaner major-structure form.
 - Candle countdown and chart toolbar improvements.
 
-The next code change should be **Milestone 1 only**. Do not begin trendlines, session logic, accumulation/distribution, or paper trading in the same change.
+The scanner is a later milestone. The next code change should be **Milestone 1 only**. Do not begin trendlines, session logic, accumulation/distribution, paper trading, or multi-market scanning in the same change.
