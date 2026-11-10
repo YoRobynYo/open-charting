@@ -13,30 +13,32 @@ function makeCandles(rows: Array<[number, number, number]>): Candle[] {
   }));
 }
 
+function makeWaveCandles(turningPoints: Array<[number, number]>, length: number): Candle[] {
+  const levels = Array.from({ length }, () => 100);
+  for (let segment = 0; segment < turningPoints.length - 1; segment += 1) {
+    const [startIndex, startLevel] = turningPoints[segment]!;
+    const [endIndex, endLevel] = turningPoints[segment + 1]!;
+    for (let index = startIndex; index <= endIndex; index += 1) {
+      const progress = (index - startIndex) / (endIndex - startIndex);
+      levels[index] = Math.round(startLevel + (endLevel - startLevel) * progress);
+    }
+  }
+  return makeCandles(levels.map((level, index) => [index + 1, level + 1, level - 1]));
+}
+
 describe("detectAiSwingStructure", () => {
   it("labels confirmed highs/lows relative to the previous pivot of the same type", () => {
-    const candles = makeCandles([
-      [1, 12, 9],
-      [2, 13, 10],
-      [3, 16, 11],
-      [4, 14, 10],
-      [5, 12, 7],
-      [6, 14, 8],
-      [7, 15, 9],
-      [8, 13, 9],
-      [9, 12, 8],
-      [10, 14, 10],
-      [11, 13, 9],
-      [12, 12, 8],
-    ]);
+    const candles = makeWaveCandles([
+      [0, 100], [6, 120], [12, 90], [18, 115], [24, 85], [30, 87],
+    ], 31);
 
     const points = detectAiSwingStructure(candles);
 
-    expect(points.map(({ time, label }) => [time, label])).toContainEqual([3, "SH"]);
-    expect(points.map(({ time, label }) => [time, label])).toContainEqual([5, "SL"]);
-    expect(points.map(({ time, label }) => [time, label])).toContainEqual([7, "LH"]);
-    expect(points.map(({ time, label }) => [time, label])).toContainEqual([9, "HL"]);
-    expect(points.map(({ time }) => time)).not.toContain(12);
+    expect(points.map(({ time, label }) => [time, label])).toEqual([
+      [7, "SH"], [13, "SL"], [19, "LH"], [25, "LL"],
+    ]);
+    expect(points.every((point) => point.major === true)).toBe(true);
+    expect(points.map(({ time }) => time)).not.toContain(2);
   });
 
   it("waits until there are enough closed candles to confirm a pivot", () => {
@@ -50,34 +52,21 @@ describe("detectAiSwingStructure", () => {
   });
 
   it("caps displayed structure labels at the latest four pivots", () => {
-    const levels = [1, 2, 3, 4, 3, 2];
-    const candles = makeCandles(Array.from({ length: 50 }, (_, index) => {
-      const level = levels[index % levels.length]!;
-      return [index + 1, 100 + level, 80 + level];
-    }));
+    const candles = makeWaveCandles([
+      [0, 100], [6, 120], [12, 90], [18, 115], [24, 85], [30, 110],
+      [36, 80], [42, 105], [48, 75], [53, 78],
+    ], 54);
 
     expect(detectAiSwingStructure(candles)).toHaveLength(4);
   });
 
-  it("keeps confirmed structure points available for the neon path", () => {
-    const points = detectAiSwingStructure(makeCandles([
-      [1, 12, 9],
-      [2, 13, 10],
-      [3, 16, 11],
-      [4, 14, 10],
-      [5, 12, 7],
-      [6, 14, 8],
-      [7, 15, 9],
-      [8, 13, 9],
-      [9, 12, 8],
-      [10, 14, 10],
-      [11, 13, 9],
-      [12, 12, 8],
-    ]));
+  it("filters out pivots that do not clear the major ATR movement threshold", () => {
+    const candles = makeWaveCandles([
+      [0, 100], [6, 120], [12, 90], [18, 115], [24, 85], [30, 87],
+    ], 31);
+    const points = detectAiSwingStructure(candles);
 
-    expect(points.map(({ time, label }) => [time, label])).toEqual([
-      [3, "SH"], [5, "SL"], [7, "LH"], [9, "HL"],
-    ]);
     expect(points.every((point) => point.major === true)).toBe(true);
+    expect(points.map(({ time }) => time)).toEqual([7, 13, 19, 25]);
   });
 });

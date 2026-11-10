@@ -2,11 +2,11 @@ import type { Candle } from "../../../services/schemas.ts";
 import type { AiChartPoint } from "../../../services/ai-analysis.ts";
 import { detectIctEvents } from "../ict-analysis/ict-analysis.ts";
 
-const SWING_STRENGTH = 2;
+export const AI_SWING_STRENGTH = 5;
 const MAX_CANDLES = 120;
 const MAX_STRUCTURE_POINTS = 4;
 const ATR_PERIOD = 14;
-const MAJOR_MOVE_ATR_MULTIPLIER = 0.75;
+export const AI_MAJOR_MOVE_ATR_MULTIPLIER = 1.25;
 
 type SwingPivot = {
   time: number;
@@ -52,7 +52,7 @@ function majorPivotIds(pivots: readonly SwingPivot[], atr: number): Set<string> 
   if (pivots.length === 0) return major;
   major.add(`${pivots[0]!.kind}-${pivots[0]!.time}`);
   let lastMajor = pivots[0]!;
-  const minimumMove = atr * MAJOR_MOVE_ATR_MULTIPLIER;
+  const minimumMove = atr * AI_MAJOR_MOVE_ATR_MULTIPLIER;
   for (const pivot of pivots.slice(1)) {
     if (Math.abs(pivot.price - lastMajor.price) >= minimumMove) {
       major.add(`${pivot.kind}-${pivot.time}`);
@@ -70,9 +70,9 @@ function majorPivotIds(pivots: readonly SwingPivot[], atr: number): Set<string> 
  */
 export function detectAiSwingStructure(candles: readonly Candle[]): AiChartPoint[] {
   const closedCandles = candles.slice(-MAX_CANDLES, -1);
-  if (closedCandles.length < SWING_STRENGTH * 2 + 1) return [];
+  if (closedCandles.length < AI_SWING_STRENGTH * 2 + 1) return [];
 
-  const rawPivots: SwingPivot[] = detectIctEvents(closedCandles, SWING_STRENGTH)
+  const rawPivots: SwingPivot[] = detectIctEvents(closedCandles, AI_SWING_STRENGTH)
     .filter((event) => event.kind === "swing-high" || event.kind === "swing-low")
     .map((event) => ({ time: event.time, kind: event.kind as SwingPivot["kind"], price: event.price! }))
     .sort((a, b) => a.time - b.time);
@@ -93,12 +93,14 @@ export function detectAiSwingStructure(candles: readonly Candle[]): AiChartPoint
         ? pivot.price > previous ? "HH" : pivot.price < previous ? "LH" : "EQH"
         : pivot.price > previous ? "HL" : pivot.price < previous ? "LL" : "EQL";
 
+    if (!majorIds.has(`${pivot.kind}-${pivot.time}`)) continue;
+
     points.push({
       time: pivot.time,
       price: pivot.price,
       kind: isHigh ? "structure-high" : "structure-low",
       label,
-      major: majorIds.has(`${pivot.kind}-${pivot.time}`),
+      major: true,
       explanation: isHigh
         ? `Confirmed swing high; ${label} compares it with the previous swing high.`
         : `Confirmed swing low; ${label} compares it with the previous swing low.`,

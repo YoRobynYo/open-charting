@@ -48,26 +48,24 @@ class AiAnalysisRenderer implements ISeriesPrimitivePaneRenderer {
         },
       );
 
-      const pivots = this.points
-        .filter((point) =>
-          (point.kind === "structure-high" || point.kind === "structure-low") && point.major !== false,
-        )
+      const majorStructure = this.points
+        .filter((point) => point.major === true &&
+          (point.kind === "structure-high" || point.kind === "structure-low"))
         .sort((a, b) => a.x - b.x);
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#39ff14";
-      ctx.shadowColor = "#39ff14";
-      ctx.shadowBlur = 7;
-      for (let index = 1; index < pivots.length; index += 1) {
-        const previous = pivots[index - 1]!;
-        const current = pivots[index]!;
-        if (previous.kind === current.kind) continue;
+      if (majorStructure.length > 1) {
+        ctx.save();
+        ctx.strokeStyle = "#22d3ee";
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(34, 211, 238, 0.8)";
+        ctx.shadowBlur = 7;
         ctx.beginPath();
-        ctx.moveTo(previous.x, previous.y);
-        ctx.lineTo(current.x, current.y);
+        ctx.moveTo(majorStructure[0]!.x, majorStructure[0]!.y);
+        for (const point of majorStructure.slice(1)) ctx.lineTo(point.x, point.y);
         ctx.stroke();
+        ctx.restore();
       }
-      ctx.shadowBlur = 0;
-      ctx.setLineDash([]);
 
       for (const [index, point] of this.points.entries()) {
         const color = POINT_COLORS[point.kind];
