@@ -11,20 +11,16 @@ The chart must remain readable. Every major visual feature is optional and indep
 
 ## Agreed visual layers
 
-### AI — Major Structure and Liquidity
+### AI — Major Structure Route
 
 The clean AI layer is the primary educational view. It should show only:
 
 - Confirmed major swing highs and swing lows.
 - HH, HL, LH, and LL labels for major pivots only.
 - A restrained neon path connecting alternating major pivots.
-- Buy-side liquidity above meaningful highs.
-- Sell-side liquidity below meaningful lows.
-- Equal or near-equal highs and lows where appropriate.
-- Liquidity sweeps and sweep-and-reclaim events.
 - Explanations in the AI side panel.
 
-The AI layer should not show the full set of FVG, iFVG, order-block, or minor-event annotations by default.
+The AI layer is the clean route through major market structure. It should not show liquidity, FVG, iFVG, order-block, or minor-event annotations by default; those belong to separate selectable layers.
 
 Initial structure rules to test:
 
@@ -49,16 +45,20 @@ Optional detailed layer containing the existing broader ICT information:
 
 This should remain off by default when a clean chart is preferred.
 
-### ICT Structure 2 — BOS / CHoCH
+### ICT Structure 2 — Liquidity and Sweeps
 
-A cleaner structural-event layer containing:
+A dedicated educational liquidity layer containing:
 
-- Confirmed BOS
-- Confirmed CHoCH
-- No FVG
-- No iFVG
+- Buy-side liquidity above meaningful highs.
+- Sell-side liquidity below meaningful lows.
+- Equal or near-equal highs and lows.
+- Liquidity sweeps.
+- Sweep-and-reclaim markers.
+- A small colour legend and plain-language explanations.
 
-### ICT Structure 3 — Trendlines
+The first paper-trading model should use this layer with the AI major-structure route. It should not require FVG, iFVG, BOS, CHoCH, breakers, or session timing.
+
+### ICT Structure 3 — Tori Trades Trendlines
 
 A separate trendline and diagonal-structure layer containing:
 
@@ -238,7 +238,7 @@ AI should not:
 5. Suppress minor HH/HL/LH/LL labels from the AI visual layer.
 6. Add tests for noisy pivot rejection and major path selection.
 
-### Milestone 2 — Liquidity layer
+### Milestone 2 — Liquidity layer and minimalist trade map
 
 1. Detect meaningful highs and lows eligible to hold liquidity.
 2. Detect equal and near-equal highs and lows.
@@ -247,21 +247,35 @@ AI should not:
 5. Add a small legend and AI explanations.
 6. Add tests for untouched, swept, reclaimed, and invalidated liquidity.
 
-### Milestone 3 — ICT Structure 3
+The first trading model should intentionally use only major swing highs and lows, buy-side and sell-side liquidity, a liquidity sweep, a reclaim or rejection confirmation, and the next opposing liquidity level as a possible target. FVG, iFVG, BOS, CHoCH, breakers, session timing, and accumulation/distribution are not prerequisites for this first model.
+
+### Milestone 3 — Sweep-and-reclaim paper model
+
+1. Create bullish and bearish paper-trade candidates only after a defined sweep and reclaim.
+2. Place the stop beyond the sweep extreme.
+3. Use the next opposing liquidity as the initial target when it is clear.
+4. Expire a candidate if confirmation does not arrive within the configured window.
+5. Require manual Take / Skip approval before opening a paper position.
+6. Record chart identity, timeframe, evidence, entry, stop, target, and result.
+7. Keep the $500 paper account, protected reserve, $10 normal entry, and $25 maximum entry rules.
+
+This is an educational paper model, not a profitability claim or an automatic live-trading strategy.
+
+### Milestone 4 — ICT Structure 3: Tori Trades trendlines
 
 1. Add filtered trendline anchors.
 2. Render rising support and falling resistance.
 3. Detect break and retest states.
 4. Keep trendlines independent of the AI neon path.
 
-### Milestone 4 — ICT Structure 4
+### Milestone 5 — ICT Structure 4
 
 1. Rename the standalone candle-colour layer to ICT Structure 4.
 2. Preserve current hammer, shooting-star, and engulfing detection.
 3. Add the user’s candle list through a pattern registry.
 4. Add one pattern at a time with tests and chart examples.
 
-### Milestone 5 — ICT Structure 6
+### Milestone 6 — ICT Structure 6
 
 1. Detect range boundaries.
 2. Detect preceding trend context.
@@ -271,7 +285,7 @@ AI should not:
 6. Add double-top and double-bottom detection.
 7. Add breakout, retest, reversal, and continuation states.
 
-### Milestone 6 — ICT Structure 5
+### Milestone 7 — ICT Structure 5
 
 1. Add configurable session windows.
 2. Add Asian range tracking.
@@ -280,7 +294,7 @@ AI should not:
 5. Add IFVG, breaker, and entry-confirmation rules.
 6. Backtest observations on BTC and ETH before using the layer for paper setups.
 
-### Milestone 7 — Paper-trading education loop
+### Milestone 8 — Paper-trading education loop
 
 Only after the chart engines are stable:
 
@@ -294,7 +308,7 @@ Only after the chart engines are stable:
 - Reset button.
 - No real-money execution.
 
-### Milestone 8 — Multi-market educational scanner
+### Milestone 9 — Multi-market educational scanner
 
 After the rules have been tested on BTC and ETH, add a scanner that evaluates the same deterministic setups across a larger Coinbase watchlist. The scanner should find educational candidates; it should not place trades automatically.
 
