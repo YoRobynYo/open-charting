@@ -54,7 +54,8 @@ function majorPivotIds(pivots: readonly SwingPivot[], atr: number): Set<string> 
   let lastMajor = pivots[0]!;
   const minimumMove = atr * AI_MAJOR_MOVE_ATR_MULTIPLIER;
   for (const pivot of pivots.slice(1)) {
-    if (Math.abs(pivot.price - lastMajor.price) >= minimumMove) {
+    if (pivot.kind !== lastMajor.kind &&
+        Math.abs(pivot.price - lastMajor.price) >= minimumMove) {
       major.add(`${pivot.kind}-${pivot.time}`);
       lastMajor = pivot;
     }
