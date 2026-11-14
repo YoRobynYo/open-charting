@@ -44,12 +44,13 @@ import {
   type DrawingTool,
   type MagnetMode,
   REPLAY_ENABLED,
+  TF_INTERVAL_MS,
   TIMEFRAMES,
   type Timeframe,
 } from "./constants.ts";
 import { ChartTemplatesMenu } from "./ChartTemplatesMenu.tsx";
 import { ReplayHUD } from "./ReplayHUD.tsx";
-import { getPipDigits } from "./utils.ts";
+import { formatCountdown, getPipDigits } from "./utils.ts";
 
 export interface ChartToolbarProps {
   selectedSymbol: string;
@@ -279,7 +280,7 @@ export function ChartToolbar({
               symbolInfo?.tickSize ? String(symbolInfo.tickSize).split(".")[1]?.length || 2 : 5,
             )}
           </span>
-          <span className="text-muted-foreground text-[10px] font-medium ml-0.5 hidden md:inline">
+          <span className="ml-0.5 hidden w-[4.75rem] shrink-0 whitespace-nowrap text-right text-[10px] font-medium tabular-nums text-muted-foreground md:inline-block">
             Sprd: {spread}
           </span>
         </div>
@@ -343,6 +344,8 @@ export function ChartToolbar({
           />
         </div>
       )}
+
+      <CandleCountdown timeframe={timeframe} />
 
       <div className="flex-1 hidden md:block" />
 
@@ -469,6 +472,38 @@ export function ToolButton({
     >
       <Icon className="h-3.5 w-3.5" />
     </button>
+  );
+}
+
+function CandleCountdown({ timeframe }: { timeframe: Timeframe }) {
+  const [countdown, setCountdown] = useState("--:--");
+
+  useEffect(() => {
+    const intervalMs = TF_INTERVAL_MS[timeframe];
+    if (!intervalMs) return;
+
+    const update = () => {
+      const now = Date.now();
+      const currentBucketStart = Math.floor(now / intervalMs) * intervalMs;
+      const nextBucketStart = currentBucketStart + intervalMs;
+      setCountdown(formatCountdown(Math.max(0, (nextBucketStart - now) / 1000)));
+    };
+
+    update();
+    const id = window.setInterval(update, 1000);
+    return () => window.clearInterval(id);
+  }, [timeframe]);
+
+  return (
+    <div
+      aria-label={`Time remaining in ${timeframe} candle`}
+      title={`Current ${timeframe} candle closes in ${countdown}`}
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background/70 px-2 font-mono text-[11px] shadow-sm"
+    >
+      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-muted-foreground">Closes in</span>
+      <span className="font-semibold tabular-nums text-foreground">{countdown}</span>
+    </div>
   );
 }
 

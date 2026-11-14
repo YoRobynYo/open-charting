@@ -14,7 +14,7 @@ import {
   type SeriesMarker,
   type Time,
 } from "lightweight-charts";
-import { Clock, ListTree } from "lucide-react";
+import { ListTree } from "lucide-react";
 import {
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -75,7 +75,6 @@ import { useIndicators } from "./useIndicators.ts";
 import { useNewsOverlay } from "./useNewsOverlay.ts";
 import { useSlTpDrag } from "./useSlTpDrag.ts";
 import {
-  formatCountdown,
   getCandleBucketTime,
   getMinMove,
   toUnixMs,
@@ -1160,10 +1159,6 @@ export function ChartPanel({
 
   // OHLCV legend state
   const [legend, setLegend] = useState<OhlcvLegend | null>(null);
-  // Candle countdown state. It is rendered independently on the right side so
-  // it remains visible even when the OHLC legend is hidden.
-  const [countdown, setCountdown] = useState("");
-  const countdownText = countdown || "--:--";
   // True once the legend has been restored to the latest bar after the crosshair
   // left the series — prevents re-setting (and re-rendering) on every off-series
   // mouse move while the cursor sits outside the plotted data.
@@ -1449,23 +1444,6 @@ export function ChartPanel({
     };
   }, [replayTradeEvents, timeframe]);
 
-  // ── Candle close countdown timer ───────────────────────────
-  // Keep a countdown for every supported timeframe, including daily and weekly.
-  useEffect(() => {
-    const intervalMs = TF_INTERVAL_MS[timeframe];
-    if (!intervalMs) return;
-    const tick = () => {
-      const now = Date.now();
-      const currentBucketStart = Math.floor(now / intervalMs) * intervalMs;
-      const nextBucketStart = currentBucketStart + intervalMs;
-      const remainingSec = Math.max(0, (nextBucketStart - now) / 1000);
-      setCountdown(formatCountdown(remainingSec));
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [timeframe]);
-
   // ── Create / destroy the chart instance ────────────────────
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1478,6 +1456,8 @@ export function ChartPanel({
         textColor: colors.text,
         fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
         fontSize: 11,
+        // Open Charting owns the interface; hide the third-party chart attribution mark.
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: colors.grid, style: LineStyle.Dotted },
@@ -2023,15 +2003,6 @@ export function ChartPanel({
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
       />
-
-      <div
-        aria-label={`Time remaining in ${timeframe} candle`}
-        className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-border/70 bg-background/85 px-2 py-1 font-mono text-[11px] shadow-sm backdrop-blur-sm"
-      >
-        <Clock className="h-3 w-3 text-muted-foreground" />
-        <span className="text-muted-foreground">Candle</span>
-        <span className="font-semibold tabular-nums text-foreground">{countdownText}</span>
-      </div>
 
       {showPatternColors && (
         <div
