@@ -10,6 +10,7 @@ function makeCandles(count = 6) {
 }
 
 const goodRequest = () => ({
+  chartId: "BTCUSD:1m",
   symbol: "BTCUSD",
   timeframe: "1m",
   candles: makeCandles(),
@@ -42,6 +43,10 @@ test("accepts a valid bounded chart question", () => {
 });
 
 test("rejects unsupported timeframes and unsorted candle times", () => {
+  const missingChartId = goodRequest();
+  delete missingChartId.chartId;
+  assert.match(validateChatRequest(missingChartId).error, /chart identity/i);
+
   const badTimeframe = goodRequest();
   badTimeframe.timeframe = "2m";
   assert.match(validateChatRequest(badTimeframe).error, /timeframe/i);

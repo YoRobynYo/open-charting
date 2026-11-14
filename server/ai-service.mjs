@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { PROJECT_CONTEXT } from "./project-context.mjs";
 
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_CANDLES = 120;
@@ -18,7 +19,10 @@ export function validateChatRequest(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { error: "Request body must be a JSON object." };
   }
-  const { symbol, timeframe, candles, messages } = body;
+  const { chartId, symbol, timeframe, candles, messages } = body;
+  if (typeof chartId !== "string" || !/^[A-Za-z0-9._:-]{3,80}$/.test(chartId)) {
+    return { error: "A valid chart identity is required." };
+  }
   if (typeof symbol !== "string" || !/^[A-Za-z0-9._-]{1,32}$/.test(symbol)) {
     return { error: "A valid chart symbol is required." };
   }
@@ -61,7 +65,7 @@ export function validateChatRequest(body) {
     cleanMessages.push({ role: message.role, content: message.content.trim() });
   }
   if (cleanMessages.at(-1)?.role !== "user") return { error: "The final conversation message must be from the user." };
-  return { value: { symbol, timeframe, candles: cleanCandles, messages: cleanMessages } };
+  return { value: { chartId, symbol, timeframe, candles: cleanCandles, messages: cleanMessages } };
 }
 
 export function validateModelOutput(value, candles) {
@@ -133,11 +137,12 @@ async function readJson(req) {
   }
 }
 
-function buildSystemPrompt({ symbol, timeframe, candles }) {
+function buildSystemPrompt({ chartId, symbol, timeframe, candles }) {
   const min = Math.min(...candles.map((candle) => candle.low));
   const max = Math.max(...candles.map((candle) => candle.high));
   return [
     "You are the educational chart-analysis assistant inside open-charting.",
+    PROJECT_CONTEXT.trim(),
     "Explain chart observations in plain language and distinguish evidence from uncertainty.",
     "When asked about market structure, compare recent confirmed local swing highs with prior swing highs and swing lows with prior swing lows. Explain HH (higher high), LH (lower high), HL (higher low), and LL (lower low) only where the supplied candles support them; distinguish confirmed historical pivots from uncertain future swing ideas.",
     "Do not make trading decisions, promise outcomes, or give buy/sell/position-size instructions. This is educational analysis, not financial advice.",
@@ -146,7 +151,7 @@ function buildSystemPrompt({ symbol, timeframe, candles }) {
     "Return only one JSON object with exactly these top-level fields: reply (string), points (array, at most 5).",
     "Each point must be {time, price, kind, label, explanation}; kind is bullish, bearish, level, caution, potential-swing-high, or potential-swing-low.",
     "Ordinary evidence points must use a supplied candle timestamp and a price inside that candle's low/high. A potential-swing-high or potential-swing-low must use the newest supplied candle timestamp and a price inside the full supplied chart range: above the newest close for a high candidate, below it for a low candidate. Return no more than one of each candidate kind, and never invent timestamps or prices. Candidate explanation must state evidence plus a confirm/invalidate condition.",
-    `Chart: ${symbol}, timeframe ${timeframe}; displayed snapshot spans price ${min} to ${max}.`,
+    `Chart identity: ${chartId}. Chart: ${symbol}, timeframe ${timeframe}; displayed snapshot spans price ${min} to ${max}.`,
     `Recent candle snapshot, oldest first (time is Unix seconds): ${JSON.stringify(candles)}`,
   ].join("\n");
 }
@@ -292,7 +297,7 @@ export function createAiServer({ env = process.env, fetchImpl = fetch, logger = 
         json(res, 400, { error: validated.error }, origin);
         return;
       }
-      const { symbol, timeframe, candles, messages } = validated.value;
+      const { chartId, symbol, timeframe, candles, messages } = validated.value;
       dailyCount += 1;
       perUserDailyCounts.set(userKey, (perUserDailyCounts.get(userKey) ?? 0) + 1);
       const providerUrl = env.OPENAI_CHAT_COMPLETIONS_URL || "https://api.openai.com/v1/chat/completions";
@@ -308,7 +313,7 @@ export function createAiServer({ env = process.env, fetchImpl = fetch, logger = 
           max_tokens: 900,
           response_format: { type: "json_object" },
           messages: [
-            { role: "system", content: buildSystemPrompt({ symbol, timeframe, candles }) },
+            { role: "system", content: buildSystemPrompt({ chartId, symbol, timeframe, candles }) },
             ...messages.slice(-MAX_MESSAGES),
           ],
         }),

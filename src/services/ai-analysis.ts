@@ -28,6 +28,8 @@ export interface AiChatMessage {
 }
 
 export interface AiChatRequest {
+  /** Stable identity for the exact chart view being discussed. */
+  chartId: string;
   symbol: string;
   timeframe: string;
   candles: Array<Pick<Candle, "time" | "open" | "high" | "low" | "close" | "volume">>;
@@ -49,10 +51,14 @@ export class AiServiceError extends Error {
 const AI_API_ORIGIN = (import.meta.env.VITE_AI_API_URL ?? "").replace(/\/$/, "");
 
 export async function checkAiService(): Promise<{ configured: boolean }> {
-  const response = await fetch(`${AI_API_ORIGIN}/api/ai/health`, { cache: "no-store" });
-  if (!response.ok) throw new AiServiceError("AI service health check failed.", response.status);
-  const status = (await response.json()) as { configured?: unknown };
-  return { configured: status.configured === true };
+  try {
+    const response = await fetch(`${AI_API_ORIGIN}/api/ai/health`, { cache: "no-store" });
+    if (!response.ok) return { configured: false };
+    const status = (await response.json()) as { configured?: unknown };
+    return { configured: status.configured === true };
+  } catch {
+    return { configured: false };
+  }
 }
 
 export async function requestAiAnalysis(payload: AiChatRequest): Promise<AiChatResponse> {

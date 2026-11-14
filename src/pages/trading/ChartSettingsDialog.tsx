@@ -50,7 +50,6 @@ const RESET_BY_TAB: Partial<Record<TabId, Partial<ChartPreferences>>> = {
     showVolume: true,
     showGrid: true,
     showWatermark: true,
-    showCountdown: true,
     showOhlcLegend: true,
   },
   colors: {
@@ -231,12 +230,6 @@ function AppearanceTab({ prefs }: { prefs: ChartPreferences }) {
         label="Symbol watermark"
         checked={prefs.showWatermark}
         onChange={(v) => set({ showWatermark: v })}
-      />
-      <ToggleRow
-        label="Candle countdown"
-        hint="Time remaining until the bar closes"
-        checked={prefs.showCountdown}
-        onChange={(v) => set({ showCountdown: v })}
       />
       <ToggleRow
         label="OHLC legend"
@@ -420,8 +413,29 @@ function EventsTab({
         onChange={() => onTogglePlugin?.("ict")}
       />
       <ToggleRow
+        label="ICT Structure 2 — Liquidity / sweeps"
+        hint="Buy-side and sell-side liquidity, equal highs/lows, and sweep-and-reclaim markers"
+        checked={activePlugins.includes("ict-structure-2")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("ict-structure-2")}
+      />
+      <ToggleRow
+        label="Learning Trade Setup"
+        hint="Teach liquidity, break, retest, paper entry, stop, target, and invalidation"
+        checked={activePlugins.includes("learning-trade-setup")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("learning-trade-setup")}
+      />
+      <ToggleRow
+        label="Candle pattern colours"
+        hint="Highlight hammer, shooting-star, and engulfing confirmation candles"
+        checked={activePlugins.includes("candle-patterns")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("candle-patterns")}
+      />
+      <ToggleRow
         label="AI analysis"
-        hint="Separate AI chart markers and a text / voice discussion panel under the chart"
+        hint="AI chart markers and a left-side text / voice discussion panel"
         checked={activePlugins.includes("ai")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ai")}

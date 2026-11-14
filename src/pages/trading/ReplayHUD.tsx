@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Pause, Square } from "lucide-react";
+import { Play, Pause, Power } from "lucide-react";
 import { cn, toLocalDateString } from "../../lib/utils.ts";
 import { useTradingStore } from "../../services/store.tsx";
 import { api } from "../../services/api.ts";
@@ -45,6 +45,9 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
   };
 
   const handleStop = () => {
+    // Exit locally first so the client-side rAF loop is cancelled immediately,
+    // even if the server/WebSocket stop acknowledgement is delayed or lost.
+    useTradingStore.getState().onReplayStateChanged("stopped");
     api.replayStop(accountId, sessionDate).catch(() => null);
   };
 
@@ -104,10 +107,12 @@ export function ReplayHUD({ accountId }: { accountId: string }) {
       {isReplaying && (
         <button
           onClick={handleStop}
-          title="Stop Replay"
-          className="p-0.5 rounded hover:bg-red-500/20 text-red-400"
+          title="Exit Replay — turn replay off"
+          aria-label="Exit Replay"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-red-500/20 text-red-400 font-bold text-[10px] tracking-wide"
         >
-          <Square className="h-3.5 w-3.5 fill-current" />
+          <Power className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">OFF</span>
         </button>
       )}
 

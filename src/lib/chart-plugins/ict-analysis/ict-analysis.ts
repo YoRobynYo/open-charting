@@ -36,6 +36,7 @@ export interface IctEvent {
 export interface IctAnalysisOptions {
   swingStrength?: number;
   excludeLastBar?: boolean;
+  display?: "all" | "structure";
 }
 
 const DEFAULT_SWING_STRENGTH = 2;
@@ -447,18 +448,23 @@ export class IctAnalysis extends PluginBase {
   private latestCandleTime: number | null = null;
   private readonly swingStrength: number;
   private readonly excludeLastBar: boolean;
+  private readonly display: "all" | "structure";
 
   constructor(options: IctAnalysisOptions = {}) {
     super();
     this.swingStrength = options.swingStrength ?? DEFAULT_SWING_STRENGTH;
     this.excludeLastBar = options.excludeLastBar ?? true;
+    this.display = options.display ?? "all";
     this.paneView = new IctPaneView(this);
   }
 
   events(): readonly IctEvent[] {
-    return this.latestCandleTime === null
+    const events = this.latestCandleTime === null
       ? []
       : filterRecentIctEvents(this.detected, this.latestCandleTime);
+    return this.display === "structure"
+      ? events.filter((event) => event.kind === "bos" || event.kind === "choch")
+      : events;
   }
 
   paneViews(): readonly ISeriesPrimitivePaneView[] {

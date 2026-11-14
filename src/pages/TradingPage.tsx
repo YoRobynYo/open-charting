@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { Bot } from "lucide-react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
@@ -103,15 +104,11 @@ export function TradingPage() {
   >("order");
   const [showRightPanel, setShowRightPanel] = useState(true);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(() => activePlugins.includes("ai"));
   const [aiPointState, setAiPointState] = useState<{ context: string; points: AiChartPoint[] }>({
     context: "",
     points: [],
   });
-  const [aiPanelHeight, setAiPanelHeight] = useState(() => {
-    const saved = Number.parseInt(safeStorage.getItem("aiPanelHeight") ?? "", 10);
-    return Number.isFinite(saved) ? Math.max(220, Math.min(480, saved)) : 300;
-  });
-
   // ── Vertical resize: chart vs bottom panel ──
   const [bottomPanelHeight, setBottomPanelHeight] = useState(() => {
     const saved = safeStorage.getItem("bottomPanelHeight");
@@ -120,9 +117,6 @@ export function TradingPage() {
   const resizingRef = useRef(false);
   const resizeStartY = useRef(0);
   const resizeStartH = useRef(0);
-  const aiResizingRef = useRef(false);
-  const aiResizeStartY = useRef(0);
-  const aiResizeStartH = useRef(0);
 
   const handleResizeStart = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -158,37 +152,6 @@ export function TradingPage() {
     [bottomPanelHeight],
   );
 
-  const handleAiResizeStart = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      aiResizingRef.current = true;
-      aiResizeStartY.current = "touches" in e ? e.touches[0]!.clientY : e.clientY;
-      aiResizeStartH.current = aiPanelHeight;
-
-      const onMove = (ev: MouseEvent | TouchEvent) => {
-        if (!aiResizingRef.current) return;
-        const y = "touches" in ev ? ev.touches[0]!.clientY : (ev as MouseEvent).clientY;
-        setAiPanelHeight(Math.max(220, Math.min(480, aiResizeStartH.current + aiResizeStartY.current - y)));
-      };
-      const onUp = () => {
-        aiResizingRef.current = false;
-        setAiPanelHeight((height) => {
-          safeStorage.setItem("aiPanelHeight", String(height));
-          return height;
-        });
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-        window.removeEventListener("touchmove", onMove);
-        window.removeEventListener("touchend", onUp);
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-      window.addEventListener("touchmove", onMove, { passive: false });
-      window.addEventListener("touchend", onUp);
-    },
-    [aiPanelHeight],
-  );
-
   // Loading a chart template swaps the whole indicator list; the toolbar's
   // own menu toggles one at a time.
   const setIndicators = useCallback(
@@ -216,6 +179,7 @@ export function TradingPage() {
     (points: AiChartPoint[]) => setAiPointState({ context: chartContextKey, points }),
     [chartContextKey],
   );
+  const aiEnabled = activePlugins.includes("ai");
 
   return (
 
@@ -268,11 +232,11 @@ export function TradingPage() {
       <MarketClosedBanner symbolInfo={symbolInfo} />
 
       {/* ── Main Layout ──────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         {/* Chart + Bottom Panel */}
-        <div className={`flex min-h-0 flex-1 min-w-0 flex-col ${activePlugins.includes("ai") ? "overflow-y-auto" : "overflow-hidden"}`}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Chart Area */}
-          <div className={`relative ${activePlugins.includes("ai") ? "h-[60vh] min-h-[360px] flex-none" : "min-h-[200px] flex-1"}`}>
+          <div className="relative min-h-[200px] flex-1">
             <ChartPanel
               candles={displayedCandles}
               selectedSymbol={selectedSymbol}
@@ -308,46 +272,19 @@ export function TradingPage() {
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
             />
+            {aiEnabled && !aiDrawerOpen && (
+              <button
+                type="button"
+                onClick={() => setAiDrawerOpen(true)}
+                className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-card/95 px-2.5 py-1.5 text-xs font-medium text-primary shadow-lg backdrop-blur-sm hover:bg-primary/10"
+                title="Open AI chart analysis"
+                aria-label="Open AI chart analysis"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                Open AI
+              </button>
+            )}
           </div>
-
-          {activePlugins.includes("ai") && (
-            <div
-              role="separator"
-              aria-label="Resize AI conversation panel"
-              aria-orientation="horizontal"
-              aria-valuenow={aiPanelHeight}
-              aria-valuemin={220}
-              aria-valuemax={480}
-              tabIndex={0}
-              onMouseDown={handleAiResizeStart}
-              onTouchStart={handleAiResizeStart}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                  event.preventDefault();
-                  setAiPanelHeight((height) => Math.max(220, Math.min(480, height + (event.key === "ArrowUp" ? 20 : -20))));
-                }
-              }}
-              className="hidden h-2 shrink-0 cursor-row-resize items-center justify-center border-t border-border bg-secondary/30 transition-colors hover:bg-primary/20 active:bg-primary/30 md:flex touch-none"
-              title="Drag to resize the AI conversation panel"
-            >
-              <div className="h-0.5 w-10 rounded-full bg-border" />
-            </div>
-          )}
-          <AiAnalysisPanel
-            key={chartContextKey}
-            visible={activePlugins.includes("ai")}
-            height={aiPanelHeight}
-            expanded={aiPanelHeight >= 420}
-            onToggleExpand={() => setAiPanelHeight((height) => {
-              const nextHeight = height >= 420 ? 300 : 460;
-              safeStorage.setItem("aiPanelHeight", String(nextHeight));
-              return nextHeight;
-            })}
-            symbol={selectedSymbol}
-            timeframe={displayedTimeframe}
-            candles={displayedCandles}
-            onPointsChange={onAiPointsChange}
-          />
 
           {/* Replay timeline scrubber — disabled until the feature is QA'd */}
           {REPLAY_ENABLED && isReplaying && activeAccountId != null && (
@@ -383,6 +320,20 @@ export function TradingPage() {
             onDeleteJournal={deleteJournal}
           />
         </div>
+
+        <AiAnalysisPanel
+          key={chartContextKey}
+          visible={aiEnabled && aiDrawerOpen}
+          height={0}
+          expanded={false}
+          onToggleExpand={() => undefined}
+          sideDrawer
+          onClose={() => setAiDrawerOpen(false)}
+          symbol={selectedSymbol}
+          timeframe={displayedTimeframe}
+          candles={displayedCandles}
+          onPointsChange={onAiPointsChange}
+        />
 
         {/* Right Panel */}
         {showRightPanel && (

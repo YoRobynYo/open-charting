@@ -36,7 +36,10 @@ import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manag
 import { isManualTrendlineInHistory } from "../../lib/chart-plugins/drawing-tools/visibility.ts";
 import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
 import { AiAnalysisOverlay } from "../../lib/chart-plugins/ai-analysis/ai-analysis-overlay.ts";
+import { analyzeCandleSequence, detectRejectionCandle } from "../../lib/candle-patterns.ts";
 import { IctAnalysis } from "../../lib/chart-plugins/ict-analysis/ict-analysis.ts";
+import { LiquidityAnalysis } from "../../lib/chart-plugins/liquidity-analysis/liquidity-analysis.ts";
+import { TradeSetupAnalysis } from "../../lib/chart-plugins/trade-setup/trade-setup-analysis.ts";
 import { SessionBreaks } from "../../lib/chart-plugins/session-breaks/session-breaks.ts";
 import { SessionHighlighting } from "../../lib/chart-plugins/session-highlighting/session-highlighting.ts";
 import { TooltipPrimitive } from "../../lib/chart-plugins/tooltip/tooltip.ts";
@@ -317,6 +320,8 @@ const PLUGIN_FACTORIES: Record<string, (ctx: PluginBuildCtx) => ISeriesPrimitive
   "session-breaks": buildSessionBreaks,
   bands: () => new BandsIndicator(),
   ict: () => new IctAnalysis(),
+  "ict-structure-2": () => new LiquidityAnalysis(),
+  "learning-trade-setup": () => new TradeSetupAnalysis(),
   tooltip: () => new TooltipPrimitive({}),
   "delta-tooltip": () => new DeltaTooltipPrimitive({}),
 };
@@ -543,9 +548,11 @@ function applyBidAskLines(
   }
   upsertPriceLine(ctx.bidLine, series, prefs.showBidLine, {
     price: tick.bid,
-    color: ctx.colors.bidLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
+    // Keep the live guides neutral and subdued; the coloured axis labels still
+    // identify Bid/Ask without a green/red line competing at every tick.
+    color: "rgba(148, 163, 184, 0.28)",
+    lineWidth: 1,
+    lineStyle: LineStyle.Dotted,
     axisLabelVisible: true,
     title: "Bid",
     axisLabelColor: ctx.colors.bidLabelBg,
@@ -553,9 +560,9 @@ function applyBidAskLines(
   });
   upsertPriceLine(ctx.askLine, series, prefs.showAskLine, {
     price: tick.ask,
-    color: ctx.colors.askLine,
-    lineWidth: 2,
-    lineStyle: LineStyle.Dashed,
+    color: "rgba(148, 163, 184, 0.28)",
+    lineWidth: 1,
+    lineStyle: LineStyle.Dotted,
     axisLabelVisible: true,
     title: "Ask",
     axisLabelColor: ctx.colors.askLabelBg,
@@ -939,26 +946,22 @@ function BidAskRow({ tick, pipDigits }: { tick: TickData; pipDigits: number }) {
   );
 }
 
-// Symbol / timeframe / OHLCV / countdown header in the chart's top-left corner.
+// Symbol / timeframe / OHLCV header in the chart's top-left corner.
 // Extracted so the visibility branching doesn't inflate ChartPanel's CC.
 function ChartLegendHeader({
   selectedSymbol,
   timeframe,
   legend,
-  countdown,
   tick,
   pipDigits,
   showOhlcLegend,
-  showCountdown,
 }: {
   selectedSymbol: string;
   timeframe: Timeframe;
   legend: OhlcvLegend | null;
-  countdown: string;
   tick?: TickData;
   pipDigits: number;
   showOhlcLegend: boolean;
-  showCountdown: boolean;
 }) {
   return (
     <div className="absolute top-2 left-3 z-10 pointer-events-none select-none">
@@ -968,12 +971,6 @@ function ChartLegendHeader({
         </span>
         <span className="text-muted-foreground font-medium">{timeframe}</span>
         {legend && showOhlcLegend && <OhlcvLegendRow legend={legend} pipDigits={pipDigits} />}
-        {countdown && showCountdown && (
-          <span className="text-muted-foreground/60 flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5 opacity-50" />
-            {countdown}
-          </span>
-        )}
       </div>
       {/* Secondary info row: Bid / Ask / Spread */}
       {tick && <BidAskRow tick={tick} pipDigits={pipDigits} />}
@@ -1163,12 +1160,10 @@ export function ChartPanel({
 
   // OHLCV legend state
   const [legend, setLegend] = useState<OhlcvLegend | null>(null);
-  // Candle countdown state. `countdownText` blanks it for timeframes that have
-  // no meaningful countdown (1d, 1w) instead of the timer effect clearing state.
+  // Candle countdown state. It is rendered independently on the right side so
+  // it remains visible even when the OHLC legend is hidden.
   const [countdown, setCountdown] = useState("");
-  const countdownIntervalMs = TF_INTERVAL_MS[timeframe];
-  const countdownText =
-    countdownIntervalMs && countdownIntervalMs < 86_400_000 ? countdown : "";
+  const countdownText = countdown || "--:--";
   // True once the legend has been restored to the latest bar after the crosshair
   // left the series — prevents re-setting (and re-rendering) on every off-series
   // mouse move while the cursor sits outside the plotted data.
@@ -1331,7 +1326,8 @@ export function ChartPanel({
       historicalExtra.view === `${selectedSymbol}:${timeframe}` ? historicalExtra.bars : [];
     return extra.length === 0 ? candles : [...extra, ...candles];
   }, [historicalExtra, candles, selectedSymbol, timeframe]);
-  const { chartData, volumeData } = useChartData(allCandles, colors);
+  const showPatternColors = activePlugins.includes("candle-patterns");
+  const { chartData, volumeData } = useChartData(allCandles, colors, showPatternColors);
 
   const {
     newsConfig,
@@ -1454,11 +1450,10 @@ export function ChartPanel({
   }, [replayTradeEvents, timeframe]);
 
   // ── Candle close countdown timer ───────────────────────────
-  // Daily and weekly bars get no countdown; that is decided when rendering the
-  // legend (see `countdownText`) so the effect never has to blank the state.
+  // Keep a countdown for every supported timeframe, including daily and weekly.
   useEffect(() => {
     const intervalMs = TF_INTERVAL_MS[timeframe];
-    if (!intervalMs || intervalMs >= 86_400_000) return;
+    if (!intervalMs) return;
     const tick = () => {
       const now = Date.now();
       const currentBucketStart = Math.floor(now / intervalMs) * intervalMs;
@@ -2024,12 +2019,32 @@ export function ChartPanel({
         selectedSymbol={selectedSymbol}
         timeframe={timeframe}
         legend={legend}
-        countdown={countdownText}
         tick={tick}
         pipDigits={pipDigits}
         showOhlcLegend={chartPrefs.showOhlcLegend}
-        showCountdown={chartPrefs.showCountdown}
       />
+
+      <div
+        aria-label={`Time remaining in ${timeframe} candle`}
+        className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-border/70 bg-background/85 px-2 py-1 font-mono text-[11px] shadow-sm backdrop-blur-sm"
+      >
+        <Clock className="h-3 w-3 text-muted-foreground" />
+        <span className="text-muted-foreground">Candle</span>
+        <span className="font-semibold tabular-nums text-foreground">{countdownText}</span>
+      </div>
+
+      {showPatternColors && (
+        <div
+          aria-label="Candle pattern color legend"
+        className="pointer-events-none absolute left-3 top-12 z-10 flex flex-wrap items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2 py-1 text-[10px] shadow-sm backdrop-blur-sm"
+        >
+          <span className="font-semibold text-muted-foreground">Patterns</span>
+          <span className="text-cyan-300">● Hammer</span>
+          <span className="text-amber-300">● Shooting star</span>
+          <span className="text-[#39ff14]">● Bullish confirm</span>
+          <span className="text-[#ff3b5c]">● Bearish confirm</span>
+        </div>
+      )}
 
       {/* Drag-to-edit tooltip */}
       {dragPrice && (
@@ -2196,7 +2211,11 @@ function dedupeByTime(sorted: CandleRow[]): CandleRow[] {
   return out;
 }
 
-function useChartData(candles: Candle[], colors: { volumeUp: string; volumeDown: string }) {
+function useChartData(
+  candles: Candle[],
+  colors: { volumeUp: string; volumeDown: string },
+  showPatternColors: boolean,
+) {
   return useMemo(() => {
     const sorted = candles
       .map(toCandleRow)
@@ -2204,7 +2223,30 @@ function useChartData(candles: Candle[], colors: { volumeUp: string; volumeDown:
       .sort((a, b) => (a.time as number) - (b.time as number));
     const deduped = dedupeByTime(sorted);
 
-    const chartData: CandlestickData<Time>[] = deduped.map(({ volume: _v, ...rest }) => rest);
+    const chartData: CandlestickData<Time>[] = deduped.map((row, index) => {
+      const { volume: _v, ...rest } = row;
+      if (!showPatternColors) return rest;
+
+      const current = row as Candle;
+      const rejection = detectRejectionCandle(current);
+      if (rejection.pattern === "hammer") {
+        return { ...rest, color: "#22d3ee", borderColor: "#22d3ee", wickColor: "#22d3ee" };
+      }
+      if (rejection.pattern === "shooting-star") {
+        return { ...rest, color: "#f59e0b", borderColor: "#f59e0b", wickColor: "#f59e0b" };
+      }
+      if (index > 0) {
+        const previous = deduped[index - 1] as Candle;
+        const sequence = analyzeCandleSequence(previous, current);
+        if (sequence.confirmed === "long") {
+          return { ...rest, color: "#39ff14", borderColor: "#39ff14", wickColor: "#39ff14" };
+        }
+        if (sequence.confirmed === "short") {
+          return { ...rest, color: "#ff3b5c", borderColor: "#ff3b5c", wickColor: "#ff3b5c" };
+        }
+      }
+      return rest;
+    });
     const volumeData: HistogramData<Time>[] = deduped.map((c) => ({
       time: c.time,
       value: c.volume,
@@ -2212,5 +2254,5 @@ function useChartData(candles: Candle[], colors: { volumeUp: string; volumeDown:
     }));
 
     return { chartData, volumeData };
-  }, [candles, colors.volumeUp, colors.volumeDown]);
+  }, [candles, colors.volumeUp, colors.volumeDown, showPatternColors]);
 }

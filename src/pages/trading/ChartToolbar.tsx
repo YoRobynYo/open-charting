@@ -138,6 +138,7 @@ export function ChartToolbar({
 }: ChartToolbarProps) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [symbolFilter, setSymbolFilter] = useState("");
+  const [showTimeframeMenu, setShowTimeframeMenu] = useState(false);
 
   const filteredSymbols = symbols.filter(
     (s) =>
@@ -284,78 +285,102 @@ export function ChartToolbar({
         </div>
       )}
 
-      {/* Timeframe Selector — locked to 1m while a replay session is active */}
-      <div className="flex items-center gap-0.5 ml-1 shrink-0">
-        {TIMEFRAMES.map((tf) => (
-          <button
-            key={tf}
-            onClick={() => onTimeframeChange(tf)}
-            disabled={isReplaying}
-            title={isReplaying ? "Timeframe is fixed to 1m during replay" : undefined}
-            className={cn(
-              "px-2 py-1 rounded-md text-xs font-medium transition-all",
-              tf === timeframe
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground",
-              isReplaying && "opacity-40 cursor-default",
-            )}
-          >
-            {tf}
-          </button>
-        ))}
+      {/* Timeframe Selector — click the current timeframe to open a vertical menu beside it. */}
+      <div className="relative ml-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowTimeframeMenu((open) => !open)}
+          disabled={isReplaying}
+          title={isReplaying ? "Timeframe is fixed to 1m during replay" : "Select timeframe"}
+          className={cn(
+            "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all",
+            "bg-primary text-primary-foreground shadow-sm",
+            isReplaying && "cursor-default opacity-40",
+          )}
+        >
+          {timeframe}
+          <ChevronDown className="h-3 w-3" />
+        </button>
+        {showTimeframeMenu && !isReplaying && (
+          <div className="absolute left-full top-0 z-50 ml-1 flex min-w-14 flex-col gap-0.5 rounded-md border border-border bg-card p-1 shadow-xl">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf}
+                type="button"
+                onClick={() => {
+                  onTimeframeChange(tf);
+                  setShowTimeframeMenu(false);
+                }}
+                className={cn(
+                  "rounded px-2 py-1 text-left text-xs font-medium transition-colors",
+                  tf === timeframe
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Session replay controls — disabled until the feature is QA'd */}
-      {REPLAY_ENABLED && replayAccountId != null && <ReplayHUD accountId={replayAccountId} />}
+      {REPLAY_ENABLED && replayAccountId != null && (
+        <div className="md:order-last">
+          <ReplayHUD accountId={replayAccountId} />
+        </div>
+      )}
 
       {/* Chart layout templates (save/load/autosave) */}
       {onSetIndicators && onSetPlugins && (
-        <ChartTemplatesMenu
-          activeIndicators={activeIndicators}
-          onSetIndicators={onSetIndicators}
-          activePlugins={activePlugins}
-          onSetPlugins={onSetPlugins}
-        />
+        <div>
+          <ChartTemplatesMenu
+            activeIndicators={activeIndicators}
+            onSetIndicators={onSetIndicators}
+            activePlugins={activePlugins}
+            onSetPlugins={onSetPlugins}
+          />
+        </div>
       )}
 
-      <div className="h-4 border-l border-border mx-1 hidden md:block" />
+      <div className="flex-1 hidden md:block" />
 
-      {/* Indicators */}
-      {
-        <div className="relative hidden md:block">
+      <div className="hidden h-4 border-l border-border mx-1 md:block" />
+
+      {/* Right-side chart controls: indicators, drawing tools, and AI/plugins. */}
+      <div className="hidden items-center gap-0.5 md:flex">
+        <div className="relative">
           <button
             onClick={onToggleIndicatorMenu}
             className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded text-xs",
+              "flex items-center gap-1 rounded px-2 py-1 text-xs",
               activeIndicators.length > 0
                 ? "bg-primary/20 text-primary"
-                : "hover:bg-secondary text-muted-foreground",
+                : "text-muted-foreground hover:bg-secondary",
             )}
           >
             <BarChart3 className="h-3 w-3" />
             Indicators
             {activeIndicators.length > 0 && (
-              <span className="bg-primary text-primary-foreground rounded-full px-1 text-[9px]">
+              <span className="rounded-full bg-primary px-1 text-[9px] text-primary-foreground">
                 {activeIndicators.length}
               </span>
             )}
           </button>
 
           {showIndicatorMenu && (
-            <div className="absolute top-full left-0 z-50 mt-1 w-64 bg-card border border-border rounded-lg shadow-xl p-2 space-y-0.5">
+            <div className="absolute right-0 top-full z-50 mt-1 w-64 space-y-0.5 rounded-lg border border-border bg-card p-2 shadow-xl">
               {INDICATOR_REGISTRY.map((ind) => (
                 <button
                   key={ind.type}
                   onClick={() => onToggleIndicator(ind.type)}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-secondary text-left",
+                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-secondary",
                     activeIndicators.includes(ind.type) && "bg-secondary",
                   )}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full shrink-0"
-                    style={{ backgroundColor: ind.color }}
-                  />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: ind.color }} />
                   <span className="flex-1">{ind.label}</span>
                   <span className="text-[10px] text-muted-foreground">{ind.pane}</span>
                 </button>
@@ -363,31 +388,23 @@ export function ChartToolbar({
             </div>
           )}
         </div>
-      }
-
-      {/* Drawing Tools — pencil icon with dropdown */}
-      {
-        <div className="hidden md:flex items-center gap-0.5">
-          <DrawingToolsDropdown
-            drawingTool={drawingTool}
-            onDrawingTool={onDrawingTool}
-            drawings={drawings}
-            onClearDrawings={onClearDrawings}
-            magnetMode={magnetMode}
-            onCycleMagnet={onCycleMagnet}
-            stayInDrawingMode={stayInDrawingMode}
-            onToggleStayInDrawingMode={onToggleStayInDrawingMode}
-          />
-          {onTogglePlugin && (
-            <PluginsDropdown activePlugins={activePlugins} onTogglePlugin={onTogglePlugin} />
-          )}
-        </div>
-      }
-
-      <div className="flex-1 hidden md:block" />
+        <DrawingToolsDropdown
+          drawingTool={drawingTool}
+          onDrawingTool={onDrawingTool}
+          drawings={drawings}
+          onClearDrawings={onClearDrawings}
+          magnetMode={magnetMode}
+          onCycleMagnet={onCycleMagnet}
+          stayInDrawingMode={stayInDrawingMode}
+          onToggleStayInDrawingMode={onToggleStayInDrawingMode}
+        />
+        {onTogglePlugin && (
+          <PluginsDropdown activePlugins={activePlugins} onTogglePlugin={onTogglePlugin} />
+        )}
+      </div>
 
       {/* Right Panel Toggles */}
-      <div className="hidden md:flex items-center gap-0.5">
+      <div className="hidden items-center gap-0.5 md:flex">
         <ToolButton
           icon={ArrowUpDown}
           tooltip="Order Panel"
@@ -460,7 +477,9 @@ const CHART_PLUGIN_ITEMS = [
   { id: "session", icon: Clock, label: "Session Highlighting" },
   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
-  { id: "ict", icon: Layers3, label: "ICT Structure" },
+  { id: "ict", icon: Layers3, label: "ICT Structure 1 (All)" },
+  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 (Liquidity / Sweeps)" },
+  { id: "learning-trade-setup", icon: Layers3, label: "Learning Trade Setup" },
   { id: "ai", icon: Activity, label: "AI Analysis" },
   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },

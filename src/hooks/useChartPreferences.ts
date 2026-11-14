@@ -45,7 +45,6 @@ export interface ChartPreferences {
   showVolume: boolean;
   showGrid: boolean;
   showWatermark: boolean;
-  showCountdown: boolean;
   showOhlcLegend: boolean;
   // ── Challenge-aware overlays ──
   /** Master switch for rule-derived price lines (daily loss / max DD / target). */
@@ -87,7 +86,6 @@ const DEFAULT_CHART_PREFS: ChartPreferences = {
   showVolume: true,
   showGrid: true,
   showWatermark: true,
-  showCountdown: true,
   showOhlcLegend: true,
   challengeOverlay: false,
   challengeDailyLossLine: false,
@@ -107,7 +105,6 @@ const BOOL_PREF_KEYS = [
   "showVolume",
   "showGrid",
   "showWatermark",
-  "showCountdown",
   "showOhlcLegend",
   "challengeOverlay",
   "challengeDailyLossLine",
@@ -148,7 +145,6 @@ export const TEMPLATE_PREF_KEYS = [
   "showVolume",
   "showGrid",
   "showWatermark",
-  "showCountdown",
   "showOhlcLegend",
   "challengeOverlay",
   "challengeDailyLossLine",

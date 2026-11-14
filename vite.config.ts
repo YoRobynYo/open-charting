@@ -43,6 +43,11 @@ export default defineConfig({
       "/api/ai": {
         target: "http://localhost:8787",
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on("error", () => {
+            // The AI sidecar is optional; the UI reports it as offline instead.
+          });
+        },
       },
       "/api": {
         target: "http://localhost:3000",

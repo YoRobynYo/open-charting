@@ -55,7 +55,9 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "VITE_ADAPTER=coinbase vite",
+    "dev:demo": "vite",
+    "dev:binance": "VITE_ADAPTER=binance vite",
     "dev:all": "bash scripts/dev-with-ai.sh",
     "dev:ci": "vite --host 0.0.0.0 --port 5173",
     "ai:server": "node server/ai-service.mjs",

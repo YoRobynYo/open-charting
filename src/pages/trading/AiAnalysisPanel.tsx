@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
+  ChevronLeft,
   LoaderCircle,
   Maximize2,
   Mic,
@@ -31,6 +32,8 @@ interface AiAnalysisPanelProps {
   onPointsChange: (points: AiChartPoint[]) => void;
   expanded: boolean;
   onToggleExpand: () => void;
+  sideDrawer?: boolean;
+  onClose?: () => void;
 }
 
 interface SpeechRecognitionResultItem {
@@ -90,6 +93,8 @@ export function AiAnalysisPanel({
   onPointsChange,
   expanded,
   onToggleExpand,
+  sideDrawer = false,
+  onClose,
 }: AiAnalysisPanelProps) {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -162,6 +167,7 @@ export function AiAnalysisPanel({
 
     try {
       const response = await requestAiAnalysis({
+        chartId: `${symbol}:${timeframe}`,
         symbol,
         timeframe,
         candles: candles.slice(-120).map(({ time, open, high, low, close, volume }) => ({
@@ -246,8 +252,10 @@ export function AiAnalysisPanel({
   return (
     <section
       aria-label="AI chart analysis and conversation"
-      className="flex shrink-0 flex-col border-t border-border bg-card/95 text-sm"
-      style={{ height }}
+      className={sideDrawer
+        ? "absolute inset-y-0 left-0 z-40 flex w-[min(390px,calc(100vw-1rem))] flex-col border-r border-border bg-card/95 text-sm shadow-2xl backdrop-blur-sm"
+        : "flex shrink-0 flex-col border-t border-border bg-card/95 text-sm"}
+      style={sideDrawer ? { height: "100%" } : { height }}
     >
       <div className="flex min-h-9 items-center gap-2 border-b border-border px-3 py-1.5">
         <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
@@ -261,6 +269,17 @@ export function AiAnalysisPanel({
             </span>
           </div>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            title="Close AI sidebar"
+            aria-label="Close AI sidebar"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+        )}
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={connectionLabel(connection)}>
           <span className={`h-1.5 w-1.5 rounded-full ${connectionColor(connection)}`} />
           <span className="hidden sm:inline">{connectionLabel(connection)}</span>
@@ -276,15 +295,17 @@ export function AiAnalysisPanel({
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={onToggleExpand}
-          className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-          title={expanded ? "Give the chart more space" : "Give the AI conversation more space"}
-          aria-label={expanded ? "Restore AI panel size" : "Expand AI panel"}
-        >
-          {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-        </button>
+        {!sideDrawer && (
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            title={expanded ? "Give the chart more space" : "Give the AI conversation more space"}
+            aria-label={expanded ? "Restore AI panel size" : "Expand AI panel"}
+          >
+            {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setSpeakReplies((current) => !current)}
