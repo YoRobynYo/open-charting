@@ -2,17 +2,29 @@ import type { Candle } from "../services/schemas.ts";
 
 export type CandlePattern =
   | "hammer"
+  | "inverted-hammer"
   | "shooting-star"
+  | "hanging-man"
   | "bullish-engulfing"
   | "bearish-engulfing"
+  | "morning-star"
+  | "evening-star"
+  | "bullish-marubozu"
+  | "bearish-marubozu"
   | "none";
 
 export type CandleVisualState =
   | "normal"
   | "hammer-candidate"
+  | "inverted-hammer-candidate"
   | "shooting-star-candidate"
+  | "hanging-man-candidate"
   | "bullish-confirmed"
-  | "bearish-confirmed";
+  | "bearish-confirmed"
+  | "morning-star-confirmed"
+  | "evening-star-confirmed"
+  | "bullish-displacement"
+  | "bearish-displacement";
 
 export interface CandleAnatomy {
   body: number;
@@ -33,6 +45,17 @@ export interface CandlePatternResult {
 }
 
 const EPSILON = 1e-12;
+const MARUBOZU_MAX_WICK_RATIO = 0.1;
+const STAR_MAX_MIDDLE_BODY_RATIO = 0.35;
+
+function noPattern(anatomy: CandleAnatomy, explanation: string): CandlePatternResult {
+  return {
+    pattern: "none",
+    visualState: "normal",
+    anatomy,
+    explanation,
+  };
+}
 
 export function getCandleAnatomy(candle: Candle): CandleAnatomy {
   const body = Math.abs(candle.close - candle.open);
@@ -51,28 +74,60 @@ export function getCandleAnatomy(candle: Candle): CandleAnatomy {
   };
 }
 
+function isMarubozu(anatomy: CandleAnatomy): boolean {
+  return anatomy.bodyRatio >= 0.8 &&
+    anatomy.upperWick / anatomy.range <= MARUBOZU_MAX_WICK_RATIO &&
+    anatomy.lowerWick / anatomy.range <= MARUBOZU_MAX_WICK_RATIO;
+}
+
 /**
- * Detect rejection-candle candidates using explicit proportions.
- * This is intentionally a candidate detector; it does not claim a trade setup.
+ * Detect one-candle formations using explicit proportions. Context such as a
+ * trend, zone, or swing location is deliberately evaluated by the indicator,
+ * not fabricated inside this pure candle detector.
  */
 export function detectRejectionCandle(candle: Candle): CandlePatternResult {
   const anatomy = getCandleAnatomy(candle);
-  const hammer = anatomy.lowerWick >= Math.max(anatomy.body * 2, EPSILON) &&
+
+  if (isMarubozu(anatomy)) {
+    return anatomy.bullish
+      ? {
+        pattern: "bullish-marubozu",
+        visualState: "bullish-displacement",
+        anatomy,
+        explanation: "Large bullish body with minimal upper and lower wicks.",
+      }
+      : anatomy.bearish
+        ? {
+          pattern: "bearish-marubozu",
+          visualState: "bearish-displacement",
+          anatomy,
+          explanation: "Large bearish body with minimal upper and lower wicks.",
+        }
+        : noPattern(anatomy, "A doji-like candle is not a directional marubozu.");
+  }
+
+  const hammerShape = anatomy.lowerWick >= Math.max(anatomy.body * 2, EPSILON) &&
     anatomy.upperWick <= Math.max(anatomy.body, EPSILON) &&
     anatomy.closePosition >= 0.65;
-  const shootingStar = anatomy.upperWick >= Math.max(anatomy.body * 2, EPSILON) &&
-    anatomy.lowerWick <= Math.max(anatomy.body, EPSILON) &&
-    anatomy.closePosition <= 0.35;
-
-  if (hammer) {
-    return {
-      pattern: "hammer",
-      visualState: "hammer-candidate",
-      anatomy,
-      explanation: "Long lower wick, compact body, and a close in the upper part of the candle range.",
-    };
+  if (hammerShape) {
+    return anatomy.bearish
+      ? {
+        pattern: "hanging-man",
+        visualState: "hanging-man-candidate",
+        anatomy,
+        explanation: "Long lower wick, compact body, and a close in the upper part of the range; bearish body is classified as a hanging-man candidate.",
+      }
+      : {
+        pattern: "hammer",
+        visualState: "hammer-candidate",
+        anatomy,
+        explanation: "Long lower wick, compact body, and a close in the upper part of the candle range.",
+      };
   }
-  if (shootingStar) {
+
+  const upperWickShape = anatomy.upperWick >= Math.max(anatomy.body * 2, EPSILON) &&
+    anatomy.lowerWick <= Math.max(anatomy.body, EPSILON);
+  if (upperWickShape && anatomy.closePosition <= 0.35) {
     return {
       pattern: "shooting-star",
       visualState: "shooting-star-candidate",
@@ -80,18 +135,19 @@ export function detectRejectionCandle(candle: Candle): CandlePatternResult {
       explanation: "Long upper wick, compact body, and a close in the lower part of the candle range.",
     };
   }
-  return {
-    pattern: "none",
-    visualState: "normal",
-    anatomy,
-    explanation: "No configured rejection-candle proportions were met.",
-  };
+  if (upperWickShape && anatomy.closePosition >= 0.35) {
+    return {
+      pattern: "inverted-hammer",
+      visualState: "inverted-hammer-candidate",
+      anatomy,
+      explanation: "Long upper wick, compact body, and a close in the upper half of the candle range.",
+    };
+  }
+
+  return noPattern(anatomy, "No configured one-candle proportions were met.");
 }
 
-/**
- * Detect a two-candle body engulfing pattern. Wicks are not used for the body
- * engulfing test, and the current candle must be closed before this is called.
- */
+/** Detect a two-candle body engulfing pattern. */
 export function detectEngulfing(previous: Candle, current: Candle): CandlePatternResult {
   const anatomy = getCandleAnatomy(current);
   const previousAnatomy = getCandleAnatomy(previous);
@@ -116,12 +172,46 @@ export function detectEngulfing(previous: Candle, current: Candle): CandlePatter
       explanation: "The bearish body covers the previous bullish candle body.",
     };
   }
-  return {
-    pattern: "none",
-    visualState: "normal",
-    anatomy,
-    explanation: "The current candle does not engulf the previous candle body.",
-  };
+  return noPattern(anatomy, "The current candle does not engulf the previous candle body.");
+}
+
+/**
+ * Detect the three-candle morning-star or evening-star sequence. Crypto often
+ * has no traditional overnight gap, so the middle candle is defined by its
+ * compact body rather than a required gap.
+ */
+export function detectStarPattern(
+  first: Candle,
+  middle: Candle,
+  third: Candle,
+): CandlePatternResult {
+  const firstAnatomy = getCandleAnatomy(first);
+  const middleAnatomy = getCandleAnatomy(middle);
+  const thirdAnatomy = getCandleAnatomy(third);
+  const middleIsSmall = middleAnatomy.bodyRatio <= STAR_MAX_MIDDLE_BODY_RATIO;
+  const firstBodyMidpoint = (first.open + first.close) / 2;
+  const morningStar = firstAnatomy.bearish && middleIsSmall && thirdAnatomy.bullish &&
+    third.close > firstBodyMidpoint;
+  const eveningStar = firstAnatomy.bullish && middleIsSmall && thirdAnatomy.bearish &&
+    third.close < firstBodyMidpoint;
+
+  if (morningStar) {
+    return {
+      pattern: "morning-star",
+      visualState: "morning-star-confirmed",
+      anatomy: thirdAnatomy,
+      explanation: "Bearish pressure, a compact middle candle, and a bullish close above the first candle's body midpoint.",
+    };
+  }
+  if (eveningStar) {
+    return {
+      pattern: "evening-star",
+      visualState: "evening-star-confirmed",
+      anatomy: thirdAnatomy,
+      explanation: "Bullish pressure, a compact middle candle, and a bearish close below the first candle's body midpoint.",
+    };
+  }
+  return noPattern(thirdAnatomy, "The three-candle sequence does not meet the configured morning-star or evening-star proportions.");
 }
 
 export interface CandleSequenceResult {
@@ -130,13 +220,11 @@ export interface CandleSequenceResult {
   confirmed: "long" | "short" | "none";
 }
 
-/**
- * Evaluate a rejection candidate followed by its next closed candle.
- */
+/** Evaluate a rejection candidate followed by its next closed candle. */
 export function analyzeCandleSequence(candidate: Candle, confirmation: Candle): CandleSequenceResult {
   const candidateResult = detectRejectionCandle(candidate);
   const confirmationResult = detectEngulfing(candidate, confirmation);
-  const confirmed = candidateResult.pattern === "hammer" && confirmationResult.pattern === "bullish-engulfing"
+  const confirmed = (candidateResult.pattern === "hammer" || candidateResult.pattern === "hanging-man") && confirmationResult.pattern === "bullish-engulfing"
     ? "long"
     : candidateResult.pattern === "shooting-star" && confirmationResult.pattern === "bearish-engulfing"
       ? "short"
