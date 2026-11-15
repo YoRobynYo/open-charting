@@ -32,10 +32,12 @@ export interface TradeSetup {
 export interface TradeSetupOptions {
   maxSetups?: number;
   retestBars?: number;
+  lookbackSeconds?: number;
 }
 
 const MAX_SETUPS = 2;
 const DEFAULT_RETEST_BARS = 8;
+const DEFAULT_LOOKBACK_SECONDS = 30 * 24 * 60 * 60;
 
 function closedCandles(candles: readonly Candle[]): Candle[] {
   return candles.length > 1 ? candles.slice(0, -1) : [];
@@ -190,9 +192,20 @@ export function detectTradeSetups(
   candles: readonly Candle[],
   options: TradeSetupOptions = {},
 ): TradeSetup[] {
-  const closed = closedCandles(candles);
+  const latestTime = candles.at(-1)?.time;
+  const lookbackSeconds = Math.max(
+    1,
+    Math.floor(options.lookbackSeconds ?? DEFAULT_LOOKBACK_SECONDS),
+  );
+  const history = latestTime === undefined
+    ? []
+    : candles.filter((candle) => candle.time >= latestTime - lookbackSeconds);
+  const closed = closedCandles(history);
   if (closed.length < 11) return [];
-  const levels = detectLiquidityLevels(candles);
+  const levels = detectLiquidityLevels(history, {
+    lookbackCandles: history.length,
+    swingLookbackCandles: history.length,
+  });
   const maxSetups = Math.max(1, Math.floor(options.maxSetups ?? MAX_SETUPS));
   return levels
     .slice(-maxSetups * 2)

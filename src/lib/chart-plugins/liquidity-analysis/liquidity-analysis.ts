@@ -26,6 +26,8 @@ export interface LiquidityLevel {
 
 export interface LiquidityAnalysisOptions {
   maxLevels?: number;
+  lookbackCandles?: number;
+  swingLookbackCandles?: number;
 }
 
 const MAX_LEVELS = 8;
@@ -79,10 +81,13 @@ export function detectLiquidityLevels(
   candles: readonly Candle[],
   options: LiquidityAnalysisOptions = {},
 ): LiquidityLevel[] {
-  const closedCandles = candles.slice(-120, -1);
+  const lookbackCandles = Math.max(1, Math.floor(options.lookbackCandles ?? 120));
+  const closedCandles = candles.slice(-lookbackCandles, -1);
   if (closedCandles.length < 11) return [];
 
-  const pivots = detectAiSwingStructure(candles)
+  const pivots = detectAiSwingStructure(candles, {
+    maxCandles: options.swingLookbackCandles ?? lookbackCandles,
+  })
     .filter((point) => point.kind === "structure-high" || point.kind === "structure-low")
     .map((point) => ({
       side: point.kind === "structure-high" ? "buy-side" as const : "sell-side" as const,

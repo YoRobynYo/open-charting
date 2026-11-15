@@ -14,6 +14,10 @@ type SwingPivot = {
   price: number;
 };
 
+export interface AiSwingStructureOptions {
+  maxCandles?: number;
+}
+
 function averageTrueRange(candles: readonly Candle[]): number {
   if (candles.length < 2) return 0;
   const ranges: number[] = [];
@@ -69,8 +73,12 @@ function majorPivotIds(pivots: readonly SwingPivot[], atr: number): Set<string> 
  * structure labels, not AI predictions; the last (still-forming) candle is
  * excluded so the labels do not repaint on every tick.
  */
-export function detectAiSwingStructure(candles: readonly Candle[]): AiChartPoint[] {
-  const closedCandles = candles.slice(-MAX_CANDLES, -1);
+export function detectAiSwingStructure(
+  candles: readonly Candle[],
+  options: AiSwingStructureOptions = {},
+): AiChartPoint[] {
+  const maxCandles = Math.max(1, Math.floor(options.maxCandles ?? MAX_CANDLES));
+  const closedCandles = candles.slice(-maxCandles, -1);
   if (closedCandles.length < AI_SWING_STRENGTH * 2 + 1) return [];
 
   const rawPivots: SwingPivot[] = detectIctEvents(closedCandles, AI_SWING_STRENGTH)

@@ -69,4 +69,16 @@ describe("detectAiSwingStructure", () => {
     expect(points.every((point) => point.major === true)).toBe(true);
     expect(points.map(({ time }) => time)).toEqual([7, 13, 19, 25]);
   });
+
+  it("can include older pivots when a caller requests a larger history window", () => {
+    const candles = makeWaveCandles([
+      [0, 100], [10, 120], [20, 90], [30, 115], [40, 85], [140, 85],
+    ], 141);
+
+    const defaultPoints = detectAiSwingStructure(candles);
+    const fullHistoryPoints = detectAiSwingStructure(candles, { maxCandles: candles.length });
+
+    expect(defaultPoints.map(({ time }) => time)).not.toContain(11);
+    expect(fullHistoryPoints.map(({ time }) => time)).toContain(11);
+  });
 });
