@@ -406,35 +406,35 @@ function EventsTab({
       />
       <SectionTitle>Structure</SectionTitle>
       <ToggleRow
-        label="ICT analysis"
+        label="ICT Structure 1 — Market Structure"
         hint="BOS / CHoCH and FVG / iFVG, with a neon swing zigzag and only the latest high and low labeled"
         checked={activePlugins.includes("ict")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ict")}
       />
       <ToggleRow
-        label="ICT Structure 2 — Liquidity / sweeps"
+        label="ICT Structure 2 — Liquidity / Sweeps"
         hint="Buy-side and sell-side liquidity, equal highs/lows, and sweep-and-reclaim markers"
         checked={activePlugins.includes("ict-structure-2")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ict-structure-2")}
       />
       <ToggleRow
-        label="Learning Trade Setup"
-        hint="Teach liquidity, break, retest, paper entry, stop, target, and invalidation"
-        checked={activePlugins.includes("learning-trade-setup")}
-        disabled={!onTogglePlugin}
-        onChange={() => onTogglePlugin?.("learning-trade-setup")}
-      />
-      <ToggleRow
-        label="Candle pattern colours"
-        hint="Highlight hammer, shooting-star, and engulfing confirmation candles"
+        label="ICT Structure 3 — Candle Patterns"
+        hint="Colour hammer, inverted hammer, shooting star, hanging man, engulfing, star, and marubozu candles"
         checked={activePlugins.includes("candle-patterns")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("candle-patterns")}
       />
       <ToggleRow
-        label="AI analysis"
+        label="ICT Structure 4 — ICT Trade Setup"
+        hint="Teach liquidity, sweep, BOS / CHoCH, retest, paper entry, stop, target, and invalidation"
+        checked={activePlugins.includes("learning-trade-setup")}
+        disabled={!onTogglePlugin}
+        onChange={() => onTogglePlugin?.("learning-trade-setup")}
+      />
+      <ToggleRow
+        label="ICT Structure 5 — ICT AI Setup"
         hint="AI chart markers and a left-side text / voice discussion panel"
         checked={activePlugins.includes("ai")}
         disabled={!onTogglePlugin}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Candle } from "../services/schemas.ts";
 import {
   analyzeCandleSequence,
+  detectCandlePatternAt,
   detectEngulfing,
   detectRejectionCandle,
   detectStarPattern,
@@ -102,5 +103,15 @@ describe("candle pattern engine", () => {
     );
     expect(sequence.candidate.pattern).toBe("hammer");
     expect(sequence.confirmed).toBe("none");
+  });
+
+  it("classifies the pattern shown on a candle using its prior context", () => {
+    const candles = [
+      candle(1, 105, 106, 99, 100),
+      candle(2, 99.5, 101, 98.5, 99.2),
+      candle(3, 99, 105, 98.8, 104),
+    ];
+
+    expect(detectCandlePatternAt(candles, 2).pattern).toBe("morning-star");
   });
 });

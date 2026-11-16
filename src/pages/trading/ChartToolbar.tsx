@@ -38,6 +38,10 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { INDICATOR_REGISTRY, type IndicatorType } from "../../lib/indicators.ts";
+import {
+  ICT_CANDLE_PATTERN_LEGEND,
+  ICT_TRADE_SETUP_LEGEND,
+} from "../../lib/chart-plugins/indicator-legend.ts";
 import { cn, formatNumber } from "../../lib/utils.ts";
 import {
   type DrawingLine,
@@ -512,10 +516,11 @@ const CHART_PLUGIN_ITEMS = [
   { id: "session", icon: Clock, label: "Session Highlighting" },
   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
-  { id: "ict", icon: Layers3, label: "ICT Structure 1 (All)" },
+  { id: "ict", icon: Layers3, label: "ICT Structure 1 — Market Structure" },
   { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 (Liquidity / Sweeps)" },
-  { id: "learning-trade-setup", icon: Layers3, label: "Learning Trade Setup" },
-  { id: "ai", icon: Activity, label: "AI Analysis" },
+  { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
+  { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
+  { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
 ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;
@@ -580,6 +585,32 @@ function PluginsDropdown({
               </button>
             );
           })}
+          <div className="mt-1 border-t border-border px-3 py-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              ICT Trade Setup key
+            </div>
+            {ICT_TRADE_SETUP_LEGEND.map((item) => (
+              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "inline-block h-2.5 w-2.5 shrink-0",
+                    item.shape === "dot" ? "rounded-full" : "rotate-45 rounded-[2px]",
+                  )}
+                  style={{ backgroundColor: item.color }}
+                />
+                <span>{item.label}</span>
+              </div>
+            ))}
+            <div className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              ICT Candle Patterns key
+            </div>
+            {ICT_CANDLE_PATTERN_LEGEND.map((item) => (
+              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
+                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

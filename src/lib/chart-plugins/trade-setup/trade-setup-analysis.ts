@@ -6,6 +6,7 @@ import type {
   Time,
 } from "lightweight-charts";
 import type { Candle } from "../../../services/schemas.ts";
+import { detectIctEvents, type IctEvent } from "../ict-analysis/ict-analysis.ts";
 import { PluginBase } from "../plugin-base.ts";
 import {
   detectTradeSetups,
@@ -25,6 +26,12 @@ interface PositionedSetup extends TradeSetup {
   targetY?: number;
 }
 
+interface PositionedBreak {
+  event: IctEvent;
+  x: number;
+  y: number;
+}
+
 function xFor(source: TradeSetupAnalysis, time: number | undefined): number | undefined {
   if (time === undefined) return undefined;
   return source.chart.timeScale().timeToCoordinate(time as Time) ?? undefined;
@@ -36,7 +43,10 @@ function yFor(source: TradeSetupAnalysis, price: number | undefined): number | u
 }
 
 class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
-  constructor(private readonly setups: PositionedSetup[]) {}
+  constructor(
+    private readonly setups: PositionedSetup[],
+    private readonly breaks: PositionedBreak[],
+  ) {}
 
   draw(target: CanvasRenderingTarget2D): void {
     target.useBitmapCoordinateSpace((scope) => {
@@ -46,6 +56,10 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.font = "10px 'JetBrains Mono', monospace";
       ctx.textBaseline = "middle";
       const width = scope.bitmapSize.width / scope.horizontalPixelRatio;
+
+      for (const { event, x, y } of this.breaks) {
+        drawInvertedTriangle(ctx, x, y, event.kind === "bos" ? "#38bdf8" : "#d946ef");
+      }
 
       for (const setup of this.setups) {
         const directionColor = setup.direction === "long" ? "#22c55e" : "#f43f5e";
@@ -61,11 +75,10 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.setLineDash([]);
         }
 
-        const markers: Array<{ x?: number; y?: number; label: string; color: string; offset?: number }> = [
-          { x: setup.liquidityX, y: setup.liquidityY, label: "1 Liquidity", color: "#a78bfa", offset: -22 },
-          { x: setup.sweepX, y: setup.sweepY, label: "Sweep confirmed", color: "#fb923c", offset: 22 },
-          { x: setup.breakX, y: levelY, label: "2 Break", color: "#38bdf8", offset: -22 },
-          { x: setup.retestX, y: levelY, label: setup.stage === "candidate" ? "3 Retest / paper candidate" : "3 Retest pending", color: directionColor, offset: 22 },
+        const markers: Array<{ x?: number; y?: number; color: string }> = [
+          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa" },
+          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c" },
+          { x: setup.retestX, y: levelY, color: directionColor },
         ];
 
         for (const marker of markers) {
@@ -74,14 +87,6 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.beginPath();
           ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);
           ctx.fill();
-          const textWidth = ctx.measureText(marker.label).width + 10;
-          const labelX = Math.min(Math.max(4, marker.x + 6), width - textWidth - 4);
-          const labelY = marker.y + (marker.offset ?? 0);
-          ctx.fillStyle = "rgba(9, 12, 18, 0.9)";
-          ctx.fillRect(labelX, labelY - 9, textWidth, 18);
-          ctx.fillStyle = marker.color;
-          ctx.textAlign = "left";
-          ctx.fillText(marker.label, labelX + 5, labelY);
         }
 
         const planY = setup.entryY ?? levelY;
@@ -91,37 +96,10 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
           drawPlanLine(ctx, planY, "Paper entry", directionColor, width);
         }
 
-        if (setup.stage === "invalidated" && levelY !== undefined) {
-          ctx.fillStyle = "#f43f5e";
-          ctx.textAlign = "right";
-          ctx.fillText("Setup invalidated", width - 8, levelY - 13);
-        }
-        if (setup.stage === "liquidity-swept" && setup.liquidityY !== undefined) {
-          drawStatus(ctx, setup.sweepX ?? setup.liquidityX ?? 0, setup.liquidityY, "Waiting for 2 Break", "#38bdf8", width);
-        } else if (setup.stage === "retest-pending" && levelY !== undefined) {
-          drawStatus(ctx, setup.breakX ?? 0, levelY, "Waiting for 3 Retest", directionColor, width);
-        }
       }
       ctx.restore();
     });
   }
-}
-
-function drawStatus(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  label: string,
-  color: string,
-  width: number,
-): void {
-  const textWidth = ctx.measureText(label).width + 10;
-  const labelX = Math.min(Math.max(4, x + 8), width - textWidth - 4);
-  ctx.fillStyle = "rgba(9, 12, 18, 0.88)";
-  ctx.fillRect(labelX, y + 34, textWidth, 18);
-  ctx.fillStyle = color;
-  ctx.textAlign = "left";
-  ctx.fillText(label, labelX + 5, y + 43);
 }
 
 function drawPlanLine(
@@ -148,6 +126,7 @@ function drawPlanLine(
 
 class TradeSetupPaneView implements ISeriesPrimitivePaneView {
   private positioned: PositionedSetup[] = [];
+  private positionedBreaks: PositionedBreak[] = [];
 
   constructor(private readonly source: TradeSetupAnalysis) {}
 
@@ -165,10 +144,17 @@ class TradeSetupPaneView implements ISeriesPrimitivePaneView {
       stopY: yFor(this.source, setup.stop),
       targetY: yFor(this.source, setup.target?.price),
     }));
+    this.positionedBreaks = this.source.structureEvents()
+      .map((event) => {
+        const x = xFor(this.source, event.time);
+        const y = yFor(this.source, event.price);
+        return x === undefined || y === undefined ? undefined : { event, x, y };
+      })
+      .filter((item): item is PositionedBreak => item !== undefined);
   }
 
   renderer(): ISeriesPrimitivePaneRenderer {
-    return new TradeSetupRenderer(this.positioned);
+    return new TradeSetupRenderer(this.positioned, this.positionedBreaks);
   }
 
   zOrder(): "top" {
@@ -179,6 +165,7 @@ class TradeSetupPaneView implements ISeriesPrimitivePaneView {
 export class TradeSetupAnalysis extends PluginBase {
   private readonly view: TradeSetupPaneView;
   private detected: TradeSetup[] = [];
+  private detectedStructureEvents: IctEvent[] = [];
 
   constructor() {
     super();
@@ -187,6 +174,10 @@ export class TradeSetupAnalysis extends PluginBase {
 
   setups(): readonly TradeSetup[] {
     return this.detected;
+  }
+
+  structureEvents(): readonly IctEvent[] {
+    return this.detectedStructureEvents;
   }
 
   paneViews(): readonly ISeriesPrimitivePaneView[] {
@@ -210,5 +201,24 @@ export class TradeSetupAnalysis extends PluginBase {
   private recompute(): void {
     const candles = this.series.data() as unknown as Candle[];
     this.detected = detectTradeSetups(candles);
+    this.detectedStructureEvents = detectIctEvents(candles).filter(
+      (event) => event.kind === "bos" || event.kind === "choch",
+    );
   }
+}
+
+function drawInvertedTriangle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  color: string,
+): void {
+  const size = 6;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x - size, y - size);
+  ctx.lineTo(x + size, y - size);
+  ctx.lineTo(x, y + size);
+  ctx.closePath();
+  ctx.fill();
 }

@@ -214,6 +214,34 @@ export function detectStarPattern(
   return noPattern(thirdAnatomy, "The three-candle sequence does not meet the configured morning-star or evening-star proportions.");
 }
 
+/** Classify the pattern confirmed on a candle using the available prior context. */
+export function detectCandlePatternAt(
+  candles: readonly Candle[],
+  index: number,
+): CandlePatternResult {
+  const current = candles[index];
+  if (!current) {
+    return noPattern(getCandleAnatomy(candles[0] ?? {
+      time: 0,
+      open: 0,
+      high: 0,
+      low: 0,
+      close: 0,
+      volume: 0,
+    }), "No candle is available at this index.");
+  }
+
+  if (index >= 2) {
+    const star = detectStarPattern(candles[index - 2]!, candles[index - 1]!, current);
+    if (star.pattern !== "none") return star;
+  }
+  if (index > 0) {
+    const engulfing = detectEngulfing(candles[index - 1]!, current);
+    if (engulfing.pattern !== "none") return engulfing;
+  }
+  return detectRejectionCandle(current);
+}
+
 export interface CandleSequenceResult {
   candidate: CandlePatternResult;
   confirmation: CandlePatternResult;

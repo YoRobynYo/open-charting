@@ -36,7 +36,8 @@ import { DrawingToolsManager } from "../../lib/chart-plugins/drawing-tools/manag
 import { isManualTrendlineInHistory } from "../../lib/chart-plugins/drawing-tools/visibility.ts";
 import { CrosshairHighlightPrimitive } from "../../lib/chart-plugins/highlight-bar-crosshair/highlight-bar-crosshair.ts";
 import { AiAnalysisOverlay } from "../../lib/chart-plugins/ai-analysis/ai-analysis-overlay.ts";
-import { analyzeCandleSequence, detectRejectionCandle } from "../../lib/candle-patterns.ts";
+import { detectCandlePatternAt } from "../../lib/candle-patterns.ts";
+import { ICT_CANDLE_PATTERN_LEGEND } from "../../lib/chart-plugins/indicator-legend.ts";
 import { IctAnalysis } from "../../lib/chart-plugins/ict-analysis/ict-analysis.ts";
 import { LiquidityAnalysis } from "../../lib/chart-plugins/liquidity-analysis/liquidity-analysis.ts";
 import { TradeSetupAnalysis } from "../../lib/chart-plugins/trade-setup/trade-setup-analysis.ts";
@@ -2004,19 +2005,6 @@ export function ChartPanel({
         showOhlcLegend={chartPrefs.showOhlcLegend}
       />
 
-      {showPatternColors && (
-        <div
-          aria-label="Candle pattern color legend"
-        className="pointer-events-none absolute left-3 top-12 z-10 flex flex-wrap items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2 py-1 text-[10px] shadow-sm backdrop-blur-sm"
-        >
-          <span className="font-semibold text-muted-foreground">Patterns</span>
-          <span className="text-cyan-300">● Hammer</span>
-          <span className="text-amber-300">● Shooting star</span>
-          <span className="text-[#39ff14]">● Bullish confirm</span>
-          <span className="text-[#ff3b5c]">● Bearish confirm</span>
-        </div>
-      )}
-
       {/* Drag-to-edit tooltip */}
       {dragPrice && (
         <div
@@ -2198,23 +2186,12 @@ function useChartData(
       const { volume: _v, ...rest } = row;
       if (!showPatternColors) return rest;
 
-      const current = row as Candle;
-      const rejection = detectRejectionCandle(current);
-      if (rejection.pattern === "hammer") {
-        return { ...rest, color: "#22d3ee", borderColor: "#22d3ee", wickColor: "#22d3ee" };
-      }
-      if (rejection.pattern === "shooting-star") {
-        return { ...rest, color: "#f59e0b", borderColor: "#f59e0b", wickColor: "#f59e0b" };
-      }
-      if (index > 0) {
-        const previous = deduped[index - 1] as Candle;
-        const sequence = analyzeCandleSequence(previous, current);
-        if (sequence.confirmed === "long") {
-          return { ...rest, color: "#39ff14", borderColor: "#39ff14", wickColor: "#39ff14" };
-        }
-        if (sequence.confirmed === "short") {
-          return { ...rest, color: "#ff3b5c", borderColor: "#ff3b5c", wickColor: "#ff3b5c" };
-        }
+      const pattern = detectCandlePatternAt(deduped as unknown as Candle[], index).pattern;
+      const patternColor = ICT_CANDLE_PATTERN_LEGEND.find((item) =>
+        item.label.toLowerCase().replaceAll(" ", "-") === pattern,
+      )?.color;
+      if (patternColor) {
+        return { ...rest, color: patternColor, borderColor: patternColor, wickColor: patternColor };
       }
       return rest;
     });
