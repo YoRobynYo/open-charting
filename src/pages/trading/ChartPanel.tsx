@@ -26,6 +26,7 @@ import {
   useState,
 } from "react";
 import { useChartPreferences } from "../../hooks/useChartPreferences.ts";
+import { CharacterCandles } from "../../lib/chart-plugins/character-candles/character-candles.ts";
 import { BandsIndicator } from "../../lib/chart-plugins/bands-indicator/bands-indicator.ts";
 import { DeltaTooltipPrimitive } from "../../lib/chart-plugins/delta-tooltip/delta-tooltip.ts";
 import {
@@ -1922,6 +1923,26 @@ export function ChartPanel({
       chartPluginsRef.current,
     );
   }, [activePlugins, isDark, selectedSymbol, timeframe, symbolCategory]);
+
+  // ICT Structure 6 (Candle Extras): character sprites drawn over matching candle bodies.
+  const characterCandlesEnabled = activePlugins.includes("character-candles");
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || !characterCandlesEnabled) return;
+    const plugin = new CharacterCandles();
+    try {
+      series.attachPrimitive(plugin);
+    } catch {
+      return;
+    }
+    return () => {
+      try {
+        series.detachPrimitive(plugin);
+      } catch {
+        /* chart instance may already have been removed */
+      }
+    };
+  }, [characterCandlesEnabled, chartEpoch]);
 
   // The AI layer owns only its point annotations. Updating a chat response
   // replaces this primitive alone; ICT/session/indicator plugins stay attached.

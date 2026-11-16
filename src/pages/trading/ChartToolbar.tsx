@@ -521,6 +521,7 @@ const CHART_PLUGIN_ITEMS = [
   { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
   { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
   { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
+  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Extras" },
   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
 ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;
