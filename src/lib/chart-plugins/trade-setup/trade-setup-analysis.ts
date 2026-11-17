@@ -28,6 +28,7 @@ interface PositionedSetup extends TradeSetup {
 
 interface PositionedBreak {
   event: IctEvent;
+  startX: number;
   x: number;
   y: number;
 }
@@ -57,8 +58,15 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
       ctx.textBaseline = "middle";
       const width = scope.bitmapSize.width / scope.horizontalPixelRatio;
 
-      for (const { event, x, y } of this.breaks) {
-        drawInvertedTriangle(ctx, x, y, event.kind === "bos" ? "#38bdf8" : "#d946ef");
+      for (const { event, startX, x, y } of this.breaks) {
+        drawStructureBreakLine(
+          ctx,
+          startX,
+          x,
+          y,
+          event.kind === "bos" ? "#22c55e" : "#f43f5e",
+          event.kind === "bos" ? "BOS" : "CHoCH",
+        );
       }
 
       for (const setup of this.setups) {
@@ -75,10 +83,15 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.setLineDash([]);
         }
 
-        const markers: Array<{ x?: number; y?: number; color: string }> = [
-          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa" },
-          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c" },
-          { x: setup.retestX, y: levelY, color: directionColor },
+        const markers: Array<{ x?: number; y?: number; color: string; label: string }> = [
+          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa", label: "Liquidity" },
+          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c", label: "Sweep confirmed" },
+          {
+            x: setup.retestX,
+            y: levelY,
+            color: directionColor,
+            label: setup.stage === "candidate" ? "Retest / paper candidate" : "Retest pending",
+          },
         ];
 
         for (const marker of markers) {
@@ -87,6 +100,7 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.beginPath();
           ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);
           ctx.fill();
+          drawMarkerLabel(ctx, marker.x + 7, marker.y - 12, marker.label, marker.color, width);
         }
 
         const planY = setup.entryY ?? levelY;
@@ -146,9 +160,12 @@ class TradeSetupPaneView implements ISeriesPrimitivePaneView {
     }));
     this.positionedBreaks = this.source.structureEvents()
       .map((event) => {
+        const startX = xFor(this.source, event.startTime);
         const x = xFor(this.source, event.time);
         const y = yFor(this.source, event.price);
-        return x === undefined || y === undefined ? undefined : { event, x, y };
+        return startX === undefined || x === undefined || y === undefined
+          ? undefined
+          : { event, startX, x, y };
       })
       .filter((item): item is PositionedBreak => item !== undefined);
   }
@@ -207,18 +224,38 @@ export class TradeSetupAnalysis extends PluginBase {
   }
 }
 
-function drawInvertedTriangle(
+function drawStructureBreakLine(
+  ctx: CanvasRenderingContext2D,
+  startX: number,
+  endX: number,
+  y: number,
+  color: string,
+  label: string,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(startX, y);
+  ctx.lineTo(endX, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  drawMarkerLabel(ctx, Math.min(startX, endX) + 5, y - 14, label, color, Math.max(startX, endX) + 80);
+}
+
+function drawMarkerLabel(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
+  label: string,
   color: string,
+  width: number,
 ): void {
-  const size = 6;
+  const textWidth = ctx.measureText(label).width + 8;
+  const labelX = Math.min(Math.max(4, x), width - textWidth - 4);
+  ctx.fillStyle = "rgba(9, 12, 18, 0.88)";
+  ctx.fillRect(labelX, y - 8, textWidth, 16);
   ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x - size, y - size);
-  ctx.lineTo(x + size, y - size);
-  ctx.lineTo(x, y + size);
-  ctx.closePath();
-  ctx.fill();
+  ctx.textAlign = "left";
+  ctx.fillText(label, labelX + 4, y);
 }

@@ -395,6 +395,7 @@ export function ChartToolbar({
             </div>
           )}
         </div>
+        <IctLegendDropdown />
         <DrawingToolsDropdown
           drawingTool={drawingTool}
           onDrawingTool={onDrawingTool}
@@ -585,34 +586,65 @@ function PluginsDropdown({
               </button>
             );
           })}
-          <div className="mt-1 border-t border-border px-3 py-2">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              ICT Trade Setup key
-            </div>
-            {ICT_TRADE_SETUP_LEGEND.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
-                <span
-                  className={cn(
-                    "inline-block h-2.5 w-2.5 shrink-0",
-                    item.shape === "dot" ? "rounded-full" : "rotate-45 rounded-[2px]",
-                  )}
-                  style={{ backgroundColor: item.color }}
-                />
-                <span>{item.label}</span>
-              </div>
-            ))}
-            <div className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              ICT Candle Patterns key
-            </div>
-            {ICT_CANDLE_PATTERN_LEGEND.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
-                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function IctLegendDropdown() {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        title="ICT colour key"
+        className={cn(
+          "flex items-center gap-1 rounded px-2 py-1 text-xs",
+          open ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary",
+        )}
+      >
+        <Layers3 className="h-3 w-3" />
+        ICT Key
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 grid w-[34rem] grid-cols-2 gap-4 rounded-lg border border-border bg-card p-3 shadow-xl">
+          <LegendColumn title="ICT Structure 4 — Trade Setup" items={ICT_TRADE_SETUP_LEGEND} />
+          <LegendColumn title="ICT Structure 3 — Candle Patterns" items={ICT_CANDLE_PATTERN_LEGEND} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LegendColumn({ title, items }: { title: string; items: typeof ICT_TRADE_SETUP_LEGEND }) {
+  return (
+    <div>
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>
+      {items.map((item) => (
+        <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
+          <span
+            className={cn(
+              "inline-block h-2.5 w-2.5 shrink-0",
+              item.shape === "dot" ? "rounded-full" : item.shape === "line" ? "h-px w-3" : "rounded-sm",
+            )}
+            style={{ backgroundColor: item.color }}
+          />
+          <span>{item.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
