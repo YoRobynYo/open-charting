@@ -264,7 +264,10 @@ export function TradingPage() {
               isReplaying={isReplaying}
               activePlugins={activePlugins}
               aiPoints={chartAiPoints}
-              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}
+              onOpenAi={() => {
+                if (!aiEnabled) handleTogglePlugin("ai");
+                setAiDrawerOpen(true);
+              }}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
               accountId={activeAccountId}
