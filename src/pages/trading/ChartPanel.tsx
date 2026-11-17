@@ -260,6 +260,8 @@ export interface ChartPanelProps {
   }>;
   activePlugins?: string[];
   aiPoints?: AiChartPoint[];
+  /** Opens the AI analysis sidebar from the chart tool rail. */
+  onOpenAi?: () => void;
   /** Toggle a chart plugin (session breaks etc.) — used by the settings dialog. */
   onTogglePlugin?: (id: string) => void;
   /** Account equity — feeds the position tool's $-risk / size readout. */
@@ -1109,6 +1111,7 @@ export function ChartPanel({
   replayTradeEvents,
   activePlugins = [],
   aiPoints = [],
+  onOpenAi,
   onTogglePlugin,
   accountEquity = 0,
   accountId,
@@ -2125,7 +2128,11 @@ export function ChartPanel({
       <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />
 
       {/* Left vertical tool rail (TradingView-style grouped flyouts) */}
-      <DrawingToolRail drawingTool={drawingTool} onDrawingTool={(t) => onDrawingToolSelect?.(t)} />
+      <DrawingToolRail
+        drawingTool={drawingTool}
+        onDrawingTool={(t) => onDrawingToolSelect?.(t)}
+        onOpenAi={onOpenAi}
+      />
     </div>
   );
 }

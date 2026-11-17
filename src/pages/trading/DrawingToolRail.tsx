@@ -2,6 +2,7 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  Bot,
   Circle,
   Equal,
   EyeOff,
@@ -156,9 +157,11 @@ function RailGroup({
 export function DrawingToolRail({
   drawingTool,
   onDrawingTool,
+  onOpenAi,
 }: {
   drawingTool: DrawingTool;
   onDrawingTool: (t: DrawingTool) => void;
+  onOpenAi?: () => void;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -231,6 +234,12 @@ export function DrawingToolRail({
           onSelect={select}
         />
       ))}
+      {onOpenAi && (
+        <>
+          <div className="my-0.5 w-full border-t border-border/50" />
+          <RailButton icon={Bot} title="Open AI chart analysis" onClick={onOpenAi} />
+        </>
+      )}
       <div className="my-0.5 w-full border-t border-border/50" />
       <RailButton icon={EyeOff} title="Hide toolbar" onClick={hide} />
     </div>

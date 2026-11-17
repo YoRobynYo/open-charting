@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Bot } from "lucide-react";
 import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
 import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
 import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
@@ -265,6 +264,7 @@ export function TradingPage() {
               isReplaying={isReplaying}
               activePlugins={activePlugins}
               aiPoints={chartAiPoints}
+              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}
               onTogglePlugin={handleTogglePlugin}
               accountEquity={account?.equity ?? account?.balance ?? 0}
               accountId={activeAccountId}
@@ -272,18 +272,6 @@ export function TradingPage() {
               onClearDrawings={clearDrawings}
               onClearIndicators={handleClearIndicators}
             />
-            {aiEnabled && !aiDrawerOpen && (
-              <button
-                type="button"
-                onClick={() => setAiDrawerOpen(true)}
-                className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-card/95 px-2.5 py-1.5 text-xs font-medium text-primary shadow-lg backdrop-blur-sm hover:bg-primary/10"
-                title="Open AI chart analysis"
-                aria-label="Open AI chart analysis"
-              >
-                <Bot className="h-3.5 w-3.5" />
-                Open AI
-              </button>
-            )}
           </div>
 
           {/* Replay timeline scrubber — disabled until the feature is QA'd */}
