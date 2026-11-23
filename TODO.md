@@ -14,7 +14,41 @@ This file preserves the project decisions the user has asked us to keep in view 
 - ICT remains an optional layer for BOS, CHoCH, FVG, iFVG, and confirmed swing highs/lows.
 - BOS/CHoCH must connect the relevant swing candle to the break candle with a horizontal line; labels on a single candle without the connector are not useful.
 - Avoid marking every candle with SH/SL or HH/HL/LH/LL. Show only sparse, meaningful labels and prevent annotation collisions.
-- Preserve the diagonal/zigzag structure line between meaningful confirmed swing points. Limit all ICT marks and connectors—including the automatic neon swing zigzag, swing labels, BOS/CHoCH, FVG and iFVG—to the three days before the latest chart candle. Manually drawn trendlines are the exception: retain a seven-day lookback. Keep saved drawing data intact.
+- Preserve the diagonal/zigzag structure line between meaningful confirmed swing points. Use the lookback agreed for each indicator; do not apply one indicator's lookback to every ICT layer. Keep saved drawing data intact.
+- ICT indicators must remain independently switchable and composable. Enabling one must not silently enable another or mix its labels, markers, colours, or logic into a different ICT layer.
+
+## ICT indicator TODO — work one indicator at a time
+
+Keep this as the current ICT work order. Update status only after implementation and the relevant checks are complete. The active implementation branch is `character-candles`; `chart-backup-updates` is a backup, not the working branch.
+
+### ICT 6 — Candle characters, names, and BOS/CHoCH (first; most used)
+
+- [ ] Keep BOS/CHoCH visible together with the candle characters and pattern names.
+- [ ] Keep each Retest/Hold/Trade step visually attached directly beneath its candle name, with a small gap; do not move the steps elsewhere.
+- [ ] Keep ICT 2's separate Sweep/Break/Hold/Trade action-word feature off in ICT 6; do not blend indicators.
+- [ ] Check candle-name visibility (including Hammer and Hanging Man), BOS/CHoCH lines, step-label placement, and zoom behavior in the chart. Record any remaining limitations before marking complete.
+- [ ] Keep in mind that pattern names are currently primarily shape-based and are not necessarily validated against prior trend or location; decide any context-sensitive naming separately before changing the rules.
+
+### ICT 2 — Sweep → break → retest → hold → trade (after ICT 6)
+
+- [ ] ICT 2 alone must not turn on ICT 4 or its colour dots, triangles, or tags. Remove the unneeded bottom colour menu if it belongs to that unwanted marker path; keep each ICT toggle independent.
+- [ ] Count a sweep only when no earlier candle closed through the level and the sweep is the highest high or lowest low of the preceding 30 candles.
+- [ ] Draw BOS/CHoCH only when a qualifying sweep set it up.
+- [ ] Show the full sequence: sweep, BOS/CHoCH, retest, hold, and trade.
+- [ ] Use a one-month lookback.
+- [ ] Verify ICT 2 by itself on 5m, 15m, and 1h charts and save screenshots for review.
+
+### ICT 3 — Supply and demand (after ICT 2)
+
+- [ ] Build as a separate, independently switchable layer; do not silently enable or merge another ICT indicator.
+- [ ] Define and implement the supply/demand zone workflow around a trigger candle in the zone, then wait for a retest and confirmation.
+- [ ] Agree and test the exact zone and confirmation rules before treating this layer as complete.
+
+### Other ICT layers and global safeguards
+
+- [ ] Leave ICT 1 unchanged unless explicitly requested.
+- [ ] Keep ICT 4 and ICT 5 independently selectable; do not infer or add their behavior to ICT 2, ICT 3, or ICT 6 without explicit agreement.
+- [ ] For each indicator, add or update focused tests, verify it works alone, then verify intended combinations without hidden cross-activation. Do not mark a layer complete until the user-requested chart checks are done.
 
 ## AI layer and screen layout
 
