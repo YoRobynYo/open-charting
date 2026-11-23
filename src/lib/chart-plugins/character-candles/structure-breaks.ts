@@ -7,6 +7,8 @@ import {
 /** A candle that is one step of a break: the retest, the hold or the trade. */
 export interface StructureStep {
   time: number;
+  open?: number;
+  close?: number;
 }
 
 /** One break of structure, ready to draw: a level, the swing it came from and the candle that closed through it. */
@@ -82,7 +84,10 @@ function findSteps(
   if (holdIndex < closedCount && rightSide(candles[holdIndex]!, direction, price)) {
     steps.hold = { time: candles[holdIndex]!.time };
     const tradeIndex = holdIndex + 1;
-    if (tradeIndex < candles.length) steps.trade = { time: candles[tradeIndex]!.time };
+    if (tradeIndex < candles.length) {
+      const tradeCandle = candles[tradeIndex]!;
+      steps.trade = { time: tradeCandle.time, open: tradeCandle.open, close: tradeCandle.close };
+    }
   }
   return steps;
 }
@@ -148,10 +153,16 @@ export function stepWordsByTime(breaks: readonly StructureBreak[]): Map<number, 
     if (b.retest) add(b.retest.time, { kind: "retest", text: "Retest", direction: b.direction });
     if (b.hold) add(b.hold.time, { kind: "hold", text: "Hold", direction: b.direction });
     if (b.trade) {
+      // Direction comes from the trade candle itself: green candle = up, red candle = down.
+      const t = b.trade as unknown as { time: number; open?: number; close?: number };
+      const tradeDirection: StructureBreak["direction"] =
+        t.open !== undefined && t.close !== undefined
+          ? (t.close >= t.open ? "bullish" : "bearish")
+          : b.direction;
       add(b.trade.time, {
         kind: "trade",
-        text: b.direction === "bullish" ? "Trade \u25B2" : "Trade \u25BC",
-        direction: b.direction,
+        text: tradeDirection === "bullish" ? "Trade \u25B2" : "Trade \u25BC",
+        direction: tradeDirection,
       });
     }
   }
