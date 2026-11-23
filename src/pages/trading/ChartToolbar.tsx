@@ -517,11 +517,11 @@ const CHART_PLUGIN_ITEMS = [
   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
   { id: "ict", icon: Layers3, label: "ICT Structure 1 — Market Structure" },
-  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 (Liquidity / Sweeps)" },
+  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 — Sweep / Break / Retest / Trade" },
   { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
   { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
   { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
-  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Extras" },
+  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Characters & Names" },
   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
 ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;

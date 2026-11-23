@@ -1,0 +1,190 @@
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index 401aaea..8aec3bb 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -15,8 +15,6 @@ import {
+   type CandleBias,
+   type CandleStoryStage,
+ } from "./candle-story";
+-import { actionForCandle, type CandleAction } from "./candle-action";
+-import { detectTradeSetups, type TradeSetup } from "../trade-setup/trade-setup";
+ 
+ /** Which character sprite each detected pattern uses. Add more as you create art. */
+ export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
+@@ -46,13 +44,6 @@ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
+   "bearish-marubozu": "Marubozu",
+ };
+ 
+-/** Text colour of the action word under a pattern name. */
+-const ACTION_COLOR: Record<CandleAction, string> = {
+-  Sweep: "#c084fc",
+-  Break: "#93c5fd",
+-  Hold: "#fbbf24",
+-};
+-
+ /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
+ export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
+   hammer: "bullish",
+@@ -111,10 +102,6 @@ export interface CharacterCandlesOptions {
+   confirmWindow: number;
+   /** Keep a faded name tag on failed or expired patterns. Off keeps the chart clean. */
+   labelFailed: boolean;
+-  /** Add Sweep, Break or Hold under a pattern name when it lines up with an ICT Structure 4 step. */
+-  actionWords: boolean;
+-  /** How many recent trade setups to look through for those action words. */
+-  maxSetups: number;
+   /** Label text size in CSS pixels. */
+   labelFontPx: number;
+   /** Length of the leader line between the wick and the label, in CSS pixels. */
+@@ -135,8 +122,6 @@ const DEFAULTS: CharacterCandlesOptions = {
+   showLabels: true,
+   confirmWindow: DEFAULT_CONFIRM_WINDOW,
+   labelFailed: false,
+-  actionWords: true,
+-  maxSetups: 6,
+   labelFontPx: 11,
+   labelLeadPx: 10,
+ };
+@@ -173,9 +158,6 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+     const from = Math.max(0, Math.floor(range.from) - 1);
+     const to = Math.min(data.length - 1, Math.ceil(range.to) + 1);
+     const candles = data as unknown as Candle[];
+-    const barSeconds = candles.length > 1
+-      ? Math.abs(candles[candles.length - 1]!.time - candles[candles.length - 2]!.time)
+-      : 0;
+ 
+     const animating = this.source.isAnimating();
+     const t = performance.now() / 1000;
+@@ -257,10 +239,6 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           const bar = data[i];
+           const text = PATTERN_LABEL[pattern];
+           if (!bar || !text) continue;
+-          const bias = PATTERN_BIAS[pattern];
+-          const action = options.actionWords && bias
+-            ? actionForCandle(this.source.setups, candles[i]!.time, bias, barSeconds)
+-            : undefined;
+           const x = chart.timeScale().logicalToCoordinate(i as never);
+           const yHigh = series.priceToCoordinate(bar.high);
+           const yLow = series.priceToCoordinate(bar.low);
+@@ -271,7 +249,6 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+             yLow,
+             text,
+             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
+-            action,
+             alpha: lost ? 0.45 : 1,
+           });
+         }
+@@ -294,8 +271,6 @@ interface LabelInput {
+   yLow: number;
+   text: string;
+   color: string;
+-  /** Sweep, Break or Hold, shown as a last line under the name. */
+-  action?: CandleAction;
+   alpha?: number;
+ }
+ 
+@@ -327,11 +302,10 @@ function drawLabels(
+ 
+   for (const l of labels) {
+     const cx = l.x * hpr;
+-    // Multi-word names wrap one word per line; an action word goes last.
++    // Multi-word pattern names wrap one word per line.
+     const lines: Array<{ text: string; color: string }> = l.text
+       .split(" ")
+       .map((w) => ({ text: w, color: "#f3f4f6" }));
+-    if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
+     const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
+     const boxW = textW + padX * 2;
+     const boxH = lineH * lines.length + padY * 2;
+@@ -450,9 +424,6 @@ export class CharacterCandles extends PluginBase {
+   private _options: CharacterCandlesOptions;
+   private _views: CharacterPaneView[];
+   public sprites: SpriteCache;
+-  /** Recent Structure 4 trade setups, used for the Sweep / Break / Hold words. */
+-  public setups: TradeSetup[] = [];
+-  private _setupKey = "";
+ 
+   constructor(options: Partial<CharacterCandlesOptions> = {}) {
+     super();
+@@ -472,7 +443,6 @@ export class CharacterCandles extends PluginBase {
+ 
+   public override attached(param: Parameters<PluginBase["attached"]>[0]) {
+     super.attached(param);
+-    this.recomputeSetups();
+     if (!this._options.animate || this._reduceMotion) return;
+     const tick = () => {
+       this.requestUpdate();
+@@ -491,21 +461,7 @@ export class CharacterCandles extends PluginBase {
+     return { chart: this.chart, series: this.series, options: this._options };
+   }
+ 
+-  private recomputeSetups() {
+-    if (!this._options.actionWords) {
+-      this.setups = [];
+-      return;
+-    }
+-    const candles = this.series.data() as unknown as Candle[];
+-    // Once per candle is enough: the steps are read from closed candles.
+-    const key = `${candles.length}:${candles.at(-1)?.time ?? 0}`;
+-    if (key === this._setupKey) return;
+-    this._setupKey = key;
+-    this.setups = detectTradeSetups(candles, { maxSetups: this._options.maxSetups });
+-  }
+-
+   protected dataUpdated() {
+-    this.recomputeSetups();
+     this.requestUpdate();
+   }
+ 
+diff --git a/src/pages/trading/ChartPanel.tsx b/src/pages/trading/ChartPanel.tsx
+index 3735ed7..7145fcd 100644
+--- a/src/pages/trading/ChartPanel.tsx
++++ b/src/pages/trading/ChartPanel.tsx
+@@ -1916,9 +1916,13 @@ export function ChartPanel({
+     const series = candleSeriesRef.current;
+     detachPlugins(series, chartPluginsRef.current);
+     chartPluginsRef.current = [];
++    // ICT 2 owns the complete liquidity-to-trade chain. ICT 4 remains available
++    // as a standalone setup overlay, and de-duplicate it when both are enabled.
++    const pluginIds = new Set(activePlugins);
++    if (pluginIds.has("ict-structure-2")) pluginIds.add("learning-trade-setup");
+     attachPlugins(
+       series,
+-      activePlugins,
++      [...pluginIds],
+       { isDark, timeframe, symbolCategory },
+       chartPluginsRef.current,
+     );
+diff --git a/src/pages/trading/ChartSettingsDialog.tsx b/src/pages/trading/ChartSettingsDialog.tsx
+index 7863370..9f0f7c6 100644
+--- a/src/pages/trading/ChartSettingsDialog.tsx
++++ b/src/pages/trading/ChartSettingsDialog.tsx
+@@ -413,8 +413,8 @@ function EventsTab({
+         onChange={() => onTogglePlugin?.("ict")}
+       />
+       <ToggleRow
+-        label="ICT Structure 2 — Liquidity / Sweeps"
+-        hint="Buy-side and sell-side liquidity, equal highs/lows, and sweep-and-reclaim markers"
++        label="ICT Structure 2 — Sweep / Break / Retest / Trade"
++        hint="Liquidity levels and the full sweep, structure break, retest/hold, and paper trade-candidate sequence. ICT 6 candle characters stay independent."
+         checked={activePlugins.includes("ict-structure-2")}
+         disabled={!onTogglePlugin}
+         onChange={() => onTogglePlugin?.("ict-structure-2")}
+diff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx
+index 9249898..cbe76f2 100644
+--- a/src/pages/trading/ChartToolbar.tsx
++++ b/src/pages/trading/ChartToolbar.tsx
+@@ -517,11 +517,11 @@ const CHART_PLUGIN_ITEMS = [
+   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
+   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
+   { id: "ict", icon: Layers3, label: "ICT Structure 1 — Market Structure" },
+-  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 (Liquidity / Sweeps)" },
++  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 — Sweep / Break / Retest / Trade" },
+   { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
+   { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
+   { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
+-  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Extras" },
++  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Characters & Names" },
+   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
+   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
+ ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;

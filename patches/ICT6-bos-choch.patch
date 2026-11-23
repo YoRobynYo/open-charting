@@ -1,0 +1,398 @@
+diff --git a/src/__tests__/structure-breaks.test.ts b/src/__tests__/structure-breaks.test.ts
+new file mode 100644
+index 0000000..f8d6925
+--- /dev/null
++++ b/src/__tests__/structure-breaks.test.ts
+@@ -0,0 +1,153 @@
++import { describe, expect, it } from "vitest";
++import type { IctCandle } from "../lib/chart-plugins/ict-analysis/ict-analysis.ts";
++import { detectStructureBreaks, type StructureBreak } from "../lib/chart-plugins/character-candles/structure-breaks.ts";
++import { drawStructureBreaks } from "../lib/chart-plugins/character-candles/character-candles.ts";
++
++/** Straight-line waves between turning points, one candle per step, one second apart. */
++function waveCandles(turningPoints: Array<[number, number]>, length: number, step = 1): IctCandle[] {
++  const levels = Array.from({ length }, () => 100);
++  for (let segment = 0; segment < turningPoints.length - 1; segment += 1) {
++    const [startIndex, startLevel] = turningPoints[segment]!;
++    const [endIndex, endLevel] = turningPoints[segment + 1]!;
++    for (let index = startIndex; index <= endIndex; index += 1) {
++      const progress = (index - startIndex) / (endIndex - startIndex);
++      levels[index] = startLevel + (endLevel - startLevel) * progress;
++    }
++  }
++  return levels.map((level, index) => ({
++    time: (index + 1) * step,
++    open: level,
++    high: level + 1,
++    low: level - 1,
++    close: level,
++  }));
++}
++
++const WAVE: Array<[number, number]> = [[0, 100], [6, 120], [12, 100], [18, 130], [24, 90], [30, 95]];
++
++describe("detectStructureBreaks", () => {
++  it("calls a break with the trend BOS and the first break against it CHoCH", () => {
++    const breaks = detectStructureBreaks(waveCandles(WAVE, 31), { strength: 3 });
++
++    expect(breaks.length).toBeGreaterThanOrEqual(2);
++    const first = breaks[0]!;
++    expect(first.kind).toBe("BOS");
++    expect(first.direction).toBe("bullish");
++    const reversal = breaks.find((b) => b.direction === "bearish");
++    expect(reversal?.kind).toBe("CHoCH");
++  });
++
++  it("anchors each break to its swing and to the candle that closed through it", () => {
++    const breaks = detectStructureBreaks(waveCandles(WAVE, 31), { strength: 3 });
++
++    for (const b of breaks) {
++      expect(b.startTime).toBeLessThan(b.time);
++      expect(Number.isFinite(b.price)).toBe(true);
++    }
++  });
++
++  it("ignores the candle that is still forming", () => {
++    const candles = waveCandles(WAVE, 31);
++    const firstTime = detectStructureBreaks(candles, { strength: 3 })[0]!.time;
++    const index = candles.findIndex((c) => c.time === firstTime);
++
++    const whileForming = detectStructureBreaks(candles.slice(0, index + 1), { strength: 3 });
++    const afterClose = detectStructureBreaks(candles.slice(0, index + 2), { strength: 3 });
++
++    expect(whileForming.some((b) => b.time === firstTime)).toBe(false);
++    expect(afterClose.some((b) => b.time === firstTime)).toBe(true);
++  });
++
++  it("drops breaks older than the lookback", () => {
++    const candles = waveCandles(WAVE, 31);
++    const all = detectStructureBreaks(candles, { strength: 3 });
++    const recent = detectStructureBreaks(candles, { strength: 3, lookbackSeconds: 8 });
++
++    expect(recent.length).toBeLessThan(all.length);
++    expect(recent.every((b) => b.startTime >= 31 - 8)).toBe(true);
++  });
++
++  it("returns nothing for an empty or tiny series", () => {
++    expect(detectStructureBreaks([])).toEqual([]);
++    expect(detectStructureBreaks(waveCandles([[0, 100], [2, 101]], 3))).toEqual([]);
++  });
++});
++
++describe("drawStructureBreaks", () => {
++  /** A canvas context that records what is drawn instead of drawing it. */
++  function recorder() {
++    const calls: string[] = [];
++    const sets: Record<string, unknown> = {};
++    const ctx = new Proxy({} as Record<string, unknown>, {
++      get(_target, key: string) {
++        if (key === "measureText") return () => ({ width: 20 });
++        return (...args: unknown[]) => { calls.push(`${key}:${JSON.stringify(args)}`); };
++      },
++      set(_target, key: string, value) {
++        sets[key] = value;
++        return true;
++      },
++    }) as unknown as CanvasRenderingContext2D;
++    return { ctx, calls, sets };
++  }
++
++  const chart = {
++    timeScale: () => ({ timeToCoordinate: (t: number) => (t === 999 ? null : t * 10) }),
++  };
++  const series = { priceToCoordinate: (p: number) => 500 - p };
++  const view = (width = 1000) => ({
++    chart: chart as never,
++    series: series as never,
++    hpr: 1,
++    vpr: 1,
++    width,
++    fontPx: 11,
++  });
++  const bos: StructureBreak = { kind: "BOS", direction: "bullish", time: 20, startTime: 10, price: 120 };
++  const choch: StructureBreak = { kind: "CHoCH", direction: "bearish", time: 40, startTime: 30, price: 90 };
++
++  it("draws a line, two dots and a word for each visible break", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [bos, choch], view());
++
++    expect(calls.filter((c) => c.startsWith("stroke:"))).toHaveLength(2);
++    expect(calls.filter((c) => c.startsWith("arc:"))).toHaveLength(4);
++    expect(calls.filter((c) => c.startsWith("fillText:")).map((c) => JSON.parse(c.slice(9))[0]))
++      .toEqual(["BOS", "CHoCH"]);
++  });
++
++  it("dashes a CHoCH and keeps a BOS solid", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [bos, choch], view());
++
++    // Each break sets its pattern and then clears it, so only the CHoCH leaves a real dash.
++    const patterns = calls.filter((c) => c.startsWith("setLineDash:") && c !== "setLineDash:[[]]");
++    expect(patterns).toEqual(["setLineDash:[[4,3]]"]);
++  });
++
++  it("colours bullish green and bearish red", () => {
++    const green = recorder();
++    drawStructureBreaks(green.ctx, [bos], view());
++    const red = recorder();
++    drawStructureBreaks(red.ctx, [choch], view());
++
++    expect(green.sets.strokeStyle).toBe("#22c55e");
++    expect(red.sets.strokeStyle).toBe("#f43f5e");
++  });
++
++  it("skips breaks that are off screen or have no position", () => {
++    const { ctx, calls } = recorder();
++    const unknownTime: StructureBreak = { ...bos, time: 999 };
++    const offScreen: StructureBreak = { ...bos, startTime: 500, time: 600 };
++    drawStructureBreaks(ctx, [unknownTime, offScreen], view(1000));
++
++    expect(calls.filter((c) => c.startsWith("stroke:"))).toHaveLength(0);
++  });
++
++  it("draws nothing when there are no breaks", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [], view());
++
++    expect(calls).toEqual([]);
++  });
++});
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index 401aaea..d677ec2 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -17,6 +17,13 @@ import {
+ } from "./candle-story";
+ import { actionForCandle, type CandleAction } from "./candle-action";
+ import { detectTradeSetups, type TradeSetup } from "../trade-setup/trade-setup";
++import type { IctCandle } from "../ict-analysis/ict-analysis";
++import {
++  DEFAULT_STRUCTURE_LOOKBACK_SECONDS,
++  DEFAULT_STRUCTURE_STRENGTH,
++  detectStructureBreaks,
++  type StructureBreak,
++} from "./structure-breaks";
+ 
+ /** Which character sprite each detected pattern uses. Add more as you create art. */
+ export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
+@@ -115,6 +122,12 @@ export interface CharacterCandlesOptions {
+   actionWords: boolean;
+   /** How many recent trade setups to look through for those action words. */
+   maxSetups: number;
++  /** Draw BOS and CHoCH as a labelled line with a dot at each end. */
++  showStructure: boolean;
++  /** Candles either side of a swing before it counts for BOS / CHoCH. Bigger means fewer breaks. */
++  structureStrength: number;
++  /** How many days back BOS / CHoCH are drawn from the latest candle. */
++  structureDays: number;
+   /** Label text size in CSS pixels. */
+   labelFontPx: number;
+   /** Length of the leader line between the wick and the label, in CSS pixels. */
+@@ -132,6 +145,9 @@ const DEFAULTS: CharacterCandlesOptions = {
+   feetSlice: 0.2,
+   animate: true,
+   maxAnimated: 40,
++  showStructure: true,
++  structureStrength: DEFAULT_STRUCTURE_STRENGTH,
++  structureDays: DEFAULT_STRUCTURE_LOOKBACK_SECONDS / 86400,
+   showLabels: true,
+   confirmWindow: DEFAULT_CONFIRM_WINDOW,
+   labelFailed: false,
+@@ -168,7 +184,8 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+     if (!range || data.length === 0) return;
+ 
+     const barSpacing = chart.timeScale().options().barSpacing;
+-    if (barSpacing < options.minBarSpacingPx) return;
++    // Zoomed far out the sprites are too small to read, but BOS / CHoCH still help.
++    const showCharacters = barSpacing >= options.minBarSpacingPx;
+ 
+     const from = Math.max(0, Math.floor(range.from) - 1);
+     const to = Math.min(data.length - 1, Math.ceil(range.to) + 1);
+@@ -181,6 +198,18 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+     const t = performance.now() / 1000;
+ 
+     target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr, bitmapSize }) => {
++      if (options.showStructure) {
++        drawStructureBreaks(ctx, this.source.structure, {
++          chart,
++          series,
++          hpr,
++          vpr,
++          width: bitmapSize.width,
++          fontPx: options.labelFontPx,
++        });
++      }
++      if (!showCharacters) return;
++
+       // Collect first so only the newest characters animate.
+       const items: Array<{
+         i: number;
+@@ -288,6 +317,69 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+   }
+ }
+ 
++/**
++ * BOS and CHoCH: a line at the broken level from its swing to the candle that
++ * closed through it, a dot at each end, and the word in a small tag. Bullish
++ * breaks are green with the tag above the line, bearish are red with the tag
++ * below. CHoCH (a break against the trend) is dashed; BOS is solid.
++ */
++export function drawStructureBreaks(
++  ctx: CanvasRenderingContext2D,
++  breaks: readonly StructureBreak[],
++  v: {
++    chart: ReturnType<CharacterCandles["context"]>["chart"];
++    series: ReturnType<CharacterCandles["context"]>["series"];
++    hpr: number;
++    vpr: number;
++    width: number;
++    fontPx: number;
++  },
++) {
++  if (breaks.length === 0) return;
++  const { chart, series, hpr, vpr } = v;
++  ctx.save();
++  ctx.font = `700 ${v.fontPx * vpr}px system-ui, -apple-system, "Segoe UI", sans-serif`;
++  ctx.textAlign = "center";
++  ctx.textBaseline = "middle";
++  ctx.lineWidth = Math.max(1, hpr);
++  const tagH = (v.fontPx + 5) * vpr;
++
++  for (const b of breaks) {
++    const x1 = chart.timeScale().timeToCoordinate(b.startTime as Time);
++    const x2 = chart.timeScale().timeToCoordinate(b.time as Time);
++    const y = series.priceToCoordinate(b.price);
++    if (x1 === null || x2 === null || y === null) continue;
++    if (x2 * hpr < 0 || x1 * hpr > v.width) continue;
++
++    const color = b.direction === "bullish" ? "#22c55e" : "#f43f5e";
++    const yPx = y * vpr;
++    ctx.strokeStyle = color;
++    ctx.fillStyle = color;
++    ctx.setLineDash(b.kind === "CHoCH" ? [4 * hpr, 3 * hpr] : []);
++    ctx.beginPath();
++    ctx.moveTo(x1 * hpr, yPx);
++    ctx.lineTo(x2 * hpr, yPx);
++    ctx.stroke();
++    ctx.setLineDash([]);
++    for (const px of [x1, x2]) {
++      ctx.beginPath();
++      ctx.arc(px * hpr, yPx, 2.5 * hpr, 0, Math.PI * 2);
++      ctx.fill();
++    }
++
++    // Keep the tag on screen when the swing is scrolled off to the left.
++    const visibleLeft = Math.max(x1 * hpr, 0);
++    const tagW = ctx.measureText(b.kind).width + 10 * hpr;
++    const cx = Math.min(Math.max((visibleLeft + x2 * hpr) / 2, tagW / 2), v.width - tagW / 2);
++    const cy = yPx + (b.direction === "bullish" ? -1 : 1) * (tagH / 2 + 2 * vpr);
++    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
++    ctx.fillRect(cx - tagW / 2, cy - tagH / 2, tagW, tagH);
++    ctx.fillStyle = color;
++    ctx.fillText(b.kind, cx, cy);
++  }
++  ctx.restore();
++}
++
+ interface LabelInput {
+   x: number;
+   yHigh: number;
+@@ -452,6 +544,8 @@ export class CharacterCandles extends PluginBase {
+   public sprites: SpriteCache;
+   /** Recent Structure 4 trade setups, used for the Sweep / Break / Hold words. */
+   public setups: TradeSetup[] = [];
++  /** BOS and CHoCH drawn on the chart. */
++  public structure: StructureBreak[] = [];
+   private _setupKey = "";
+ 
+   constructor(options: Partial<CharacterCandlesOptions> = {}) {
+@@ -492,16 +586,20 @@ export class CharacterCandles extends PluginBase {
+   }
+ 
+   private recomputeSetups() {
+-    if (!this._options.actionWords) {
+-      this.setups = [];
+-      return;
+-    }
+     const candles = this.series.data() as unknown as Candle[];
+     // Once per candle is enough: the steps are read from closed candles.
+     const key = `${candles.length}:${candles.at(-1)?.time ?? 0}`;
+     if (key === this._setupKey) return;
+     this._setupKey = key;
+-    this.setups = detectTradeSetups(candles, { maxSetups: this._options.maxSetups });
++    this.setups = this._options.actionWords
++      ? detectTradeSetups(candles, { maxSetups: this._options.maxSetups })
++      : [];
++    this.structure = this._options.showStructure
++      ? detectStructureBreaks(candles as unknown as IctCandle[], {
++        strength: this._options.structureStrength,
++        lookbackSeconds: this._options.structureDays * 86400,
++      })
++      : [];
+   }
+ 
+   protected dataUpdated() {
+diff --git a/src/lib/chart-plugins/character-candles/structure-breaks.ts b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+new file mode 100644
+index 0000000..64d5699
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+@@ -0,0 +1,58 @@
++import {
++  detectIctEvents,
++  filterRecentIctEvents,
++  type IctCandle,
++} from "../ict-analysis/ict-analysis.ts";
++
++/** One break of structure, ready to draw: a level, the swing it came from and the candle that closed through it. */
++export interface StructureBreak {
++  /** BOS continues the trend. CHoCH is the first break against it. */
++  kind: "BOS" | "CHoCH";
++  direction: "bullish" | "bearish";
++  /** The candle that closed through the level. */
++  time: number;
++  /** The swing candle the level came from. */
++  startTime: number;
++  price: number;
++}
++
++export interface StructureBreakOptions {
++  /** Candles either side of a swing before it counts. Bigger means fewer, stronger breaks. */
++  strength?: number;
++  /** Only keep breaks this far back from the latest candle. */
++  lookbackSeconds?: number;
++}
++
++export const DEFAULT_STRUCTURE_STRENGTH = 5;
++export const DEFAULT_STRUCTURE_LOOKBACK_SECONDS = 30 * 24 * 60 * 60;
++
++/**
++ * BOS and CHoCH read from closed candles only, so a label never appears and
++ * vanishes while the latest candle is still forming.
++ */
++export function detectStructureBreaks(
++  candles: readonly IctCandle[],
++  options: StructureBreakOptions = {},
++): StructureBreak[] {
++  const latest = candles.at(-1)?.time;
++  if (latest === undefined) return [];
++  const events = detectIctEvents(
++    candles.slice(0, -1),
++    options.strength ?? DEFAULT_STRUCTURE_STRENGTH,
++  );
++  return filterRecentIctEvents(
++    events,
++    latest,
++    options.lookbackSeconds ?? DEFAULT_STRUCTURE_LOOKBACK_SECONDS,
++  ).flatMap((event): StructureBreak[] => {
++    if ((event.kind !== "bos" && event.kind !== "choch") ||
++        event.price === undefined || event.startTime === undefined) return [];
++    return [{
++      kind: event.kind === "bos" ? "BOS" : "CHoCH",
++      direction: event.direction,
++      time: event.time,
++      startTime: event.startTime,
++      price: event.price,
++    }];
++  });
++}

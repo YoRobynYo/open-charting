@@ -413,8 +413,8 @@ function EventsTab({
         onChange={() => onTogglePlugin?.("ict")}
       />
       <ToggleRow
-        label="ICT Structure 2 — Liquidity / Sweeps"
-        hint="Buy-side and sell-side liquidity, equal highs/lows, and sweep-and-reclaim markers"
+        label="ICT Structure 2 — Sweep / Break / Retest / Trade"
+        hint="Liquidity levels and the full sweep, structure break, retest/hold, and paper trade-candidate sequence. ICT 6 candle characters stay independent."
         checked={activePlugins.includes("ict-structure-2")}
         disabled={!onTogglePlugin}
         onChange={() => onTogglePlugin?.("ict-structure-2")}

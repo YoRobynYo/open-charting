@@ -1916,9 +1916,13 @@ export function ChartPanel({
     const series = candleSeriesRef.current;
     detachPlugins(series, chartPluginsRef.current);
     chartPluginsRef.current = [];
+    // ICT 2 owns the complete liquidity-to-trade chain. ICT 4 remains available
+    // as a standalone setup overlay, and de-duplicate it when both are enabled.
+    const pluginIds = new Set(activePlugins);
+    if (pluginIds.has("ict-structure-2")) pluginIds.add("learning-trade-setup");
     attachPlugins(
       series,
-      activePlugins,
+      [...pluginIds],
       { isDark, timeframe, symbolCategory },
       chartPluginsRef.current,
     );

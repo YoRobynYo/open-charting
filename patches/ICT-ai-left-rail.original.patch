@@ -1,0 +1,108 @@
+[1mdiff --git a/src/pages/TradingPage.tsx b/src/pages/TradingPage.tsx[m
+[1mindex e10a1a9..bf6e2a4 100644[m
+[1m--- a/src/pages/TradingPage.tsx[m
+[1m+++ b/src/pages/TradingPage.tsx[m
+[36m@@ -1,5 +1,4 @@[m
+ import { useCallback, useMemo, useRef, useState } from "react";[m
+[31m-import { Bot } from "lucide-react";[m
+ import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";[m
+ import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";[m
+ import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";[m
+[36m@@ -265,6 +264,7 @@[m [mexport function TradingPage() {[m
+               isReplaying={isReplaying}[m
+               activePlugins={activePlugins}[m
+               aiPoints={chartAiPoints}[m
+[32m+[m[32m              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}[m
+               onTogglePlugin={handleTogglePlugin}[m
+               accountEquity={account?.equity ?? account?.balance ?? 0}[m
+               accountId={activeAccountId}[m
+[36m@@ -272,18 +272,6 @@[m [mexport function TradingPage() {[m
+               onClearDrawings={clearDrawings}[m
+               onClearIndicators={handleClearIndicators}[m
+             />[m
+[31m-            {aiEnabled && !aiDrawerOpen && ([m
+[31m-              <button[m
+[31m-                type="button"[m
+[31m-                onClick={() => setAiDrawerOpen(true)}[m
+[31m-                className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-card/95 px-2.5 py-1.5 text-xs font-medium text-primary shadow-lg backdrop-blur-sm hover:bg-primary/10"[m
+[31m-                title="Open AI chart analysis"[m
+[31m-                aria-label="Open AI chart analysis"[m
+[31m-              >[m
+[31m-                <Bot className="h-3.5 w-3.5" />[m
+[31m-                Open AI[m
+[31m-              </button>[m
+[31m-            )}[m
+           </div>[m
+ [m
+           {/* Replay timeline scrubber — disabled until the feature is QA'd */}[m
+[1mdiff --git a/src/pages/trading/ChartPanel.tsx b/src/pages/trading/ChartPanel.tsx[m
+[1mindex 8e46c87..a2ca0f8 100644[m
+[1m--- a/src/pages/trading/ChartPanel.tsx[m
+[1m+++ b/src/pages/trading/ChartPanel.tsx[m
+[36m@@ -260,6 +260,8 @@[m [mexport interface ChartPanelProps {[m
+   }>;[m
+   activePlugins?: string[];[m
+   aiPoints?: AiChartPoint[];[m
+[32m+[m[32m  /** Opens the AI analysis sidebar from the chart tool rail. */[m
+[32m+[m[32m  onOpenAi?: () => void;[m
+   /** Toggle a chart plugin (session breaks etc.) — used by the settings dialog. */[m
+   onTogglePlugin?: (id: string) => void;[m
+   /** Account equity — feeds the position tool's $-risk / size readout. */[m
+[36m@@ -1109,6 +1111,7 @@[m [mexport function ChartPanel({[m
+   replayTradeEvents,[m
+   activePlugins = [],[m
+   aiPoints = [],[m
+[32m+[m[32m  onOpenAi,[m
+   onTogglePlugin,[m
+   accountEquity = 0,[m
+   accountId,[m
+[36m@@ -2125,7 +2128,11 @@[m [mexport function ChartPanel({[m
+       <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />[m
+ [m
+       {/* Left vertical tool rail (TradingView-style grouped flyouts) */}[m
+[31m-      <DrawingToolRail drawingTool={drawingTool} onDrawingTool={(t) => onDrawingToolSelect?.(t)} />[m
+[32m+[m[32m      <DrawingToolRail[m
+[32m+[m[32m        drawingTool={drawingTool}[m
+[32m+[m[32m        onDrawingTool={(t) => onDrawingToolSelect?.(t)}[m
+[32m+[m[32m        onOpenAi={onOpenAi}[m
+[32m+[m[32m      />[m
+     </div>[m
+   );[m
+ }[m
+[1mdiff --git a/src/pages/trading/DrawingToolRail.tsx b/src/pages/trading/DrawingToolRail.tsx[m
+[1mindex e4ae382..a25a76a 100644[m
+[1m--- a/src/pages/trading/DrawingToolRail.tsx[m
+[1m+++ b/src/pages/trading/DrawingToolRail.tsx[m
+[36m@@ -2,6 +2,7 @@[m [mimport {[m
+   ArrowDownRight,[m
+   ArrowRight,[m
+   ArrowUpRight,[m
+[32m+[m[32m  Bot,[m
+   Circle,[m
+   Equal,[m
+   EyeOff,[m
+[36m@@ -156,9 +157,11 @@[m [mfunction RailGroup({[m
+ export function DrawingToolRail({[m
+   drawingTool,[m
+   onDrawingTool,[m
+[32m+[m[32m  onOpenAi,[m
+ }: {[m
+   drawingTool: DrawingTool;[m
+   onDrawingTool: (t: DrawingTool) => void;[m
+[32m+[m[32m  onOpenAi?: () => void;[m
+ }) {[m
+   const [openGroup, setOpenGroup] = useState<string | null>(null);[m
+   const [hidden, setHidden] = useState(false);[m
+[36m@@ -231,6 +234,12 @@[m [mexport function DrawingToolRail({[m
+           onSelect={select}[m
+         />[m
+       ))}[m
+[32m+[m[32m      {onOpenAi && ([m
+[32m+[m[32m        <>[m
+[32m+[m[32m          <div className="my-0.5 w-full border-t border-border/50" />[m
+[32m+[m[32m          <RailButton icon={Bot} title="Open AI chart analysis" onClick={onOpenAi} />[m
+[32m+[m[32m        </>[m
+[32m+[m[32m      )}[m
+       <div className="my-0.5 w-full border-t border-border/50" />[m
+       <RailButton icon={EyeOff} title="Hide toolbar" onClick={hide} />[m
+     </div>[m

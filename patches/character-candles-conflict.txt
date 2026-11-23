@@ -1,0 +1,299 @@
+diff --cc src/lib/chart-plugins/character-candles/character-candles.ts
+index 59f9b4c,401aaea..0000000
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@@ -24,6 -32,55 +32,58 @@@ export const PATTERN_TO_CHARACTER: Part
+    "evening-star": "dusk-star",
+  };
+  
+++<<<<<<< Updated upstream
+++=======
++ /** Real pattern names shown on the chart labels (never the character names). Direction is shown by the tag colour. */
++ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
++   hammer: "Hammer",
++   "inverted-hammer": "Inverted Hammer",
++   "shooting-star": "Shooting Star",
++   "hanging-man": "Hanging Man",
++   "bullish-engulfing": "Engulfing",
++   "bearish-engulfing": "Engulfing",
++   "morning-star": "Morning Star",
++   "evening-star": "Evening Star",
++   "bullish-marubozu": "Marubozu",
++   "bearish-marubozu": "Marubozu",
++ };
++ 
++ /** Text colour of the action word under a pattern name. */
++ const ACTION_COLOR: Record<CandleAction, string> = {
++   Sweep: "#c084fc",
++   Break: "#93c5fd",
++   Hold: "#fbbf24",
++ };
++ 
++ /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
++ export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
++   hammer: "bullish",
++   "inverted-hammer": "bullish",
++   "bullish-engulfing": "bullish",
++   "morning-star": "bullish",
++   "bullish-marubozu": "bullish",
++   "shooting-star": "bearish",
++   "hanging-man": "bearish",
++   "bearish-engulfing": "bearish",
++   "evening-star": "bearish",
++   "bearish-marubozu": "bearish",
++ };
++ 
++ /** Label colours, from the original ICT candle-pattern colour table. */
++ export const PATTERN_COLOR: Partial<Record<CandlePattern, string>> = {
++   hammer: "#22d3ee",
++   "inverted-hammer": "#67e8f9",
++   "shooting-star": "#f59e0b",
++   "hanging-man": "#fbbf24",
++   "bullish-engulfing": "#39ff14",
++   "bearish-engulfing": "#ff3b5c",
++   "morning-star": "#4ade80",
++   "evening-star": "#fb7185",
++   "bullish-marubozu": "#16a34a",
++   "bearish-marubozu": "#dc2626",
++ };
++ 
+++>>>>>>> Stashed changes
+  export interface CharacterCandlesOptions {
+    /** Folder under /public that holds the PNGs, e.g. /characters/blaze.png */
+    basePath: string;
+@@@ -42,6 -105,20 +108,23 @@@
+    animate: boolean;
+    /** Only the newest N visible characters animate, to keep the chart fast. */
+    maxAnimated: number;
+++<<<<<<< Updated upstream
+++=======
++   /** Draw a short leader line and the real pattern name above each character. */
++   showLabels: boolean;
++   /** Candles after a pattern that may confirm it (close beyond its high/low). */
++   confirmWindow: number;
++   /** Keep a faded name tag on failed or expired patterns. Off keeps the chart clean. */
++   labelFailed: boolean;
++   /** Add Sweep, Break or Hold under a pattern name when it lines up with an ICT Structure 4 step. */
++   actionWords: boolean;
++   /** How many recent trade setups to look through for those action words. */
++   maxSetups: number;
++   /** Label text size in CSS pixels. */
++   labelFontPx: number;
++   /** Length of the leader line between the wick and the label, in CSS pixels. */
++   labelLeadPx: number;
+++>>>>>>> Stashed changes
+  }
+  
+  const DEFAULTS: CharacterCandlesOptions = {
+@@@ -54,6 -132,13 +138,16 @@@
+    feetSlice: 0.2,
+    animate: true,
+    maxAnimated: 40,
+++<<<<<<< Updated upstream
+++=======
++   showLabels: true,
++   confirmWindow: DEFAULT_CONFIRM_WINDOW,
++   labelFailed: false,
++   actionWords: true,
++   maxSetups: 6,
++   labelFontPx: 11,
++   labelLeadPx: 10,
+++>>>>>>> Stashed changes
+  };
+  
+  class SpriteCache {
+@@@ -92,14 -180,23 +189,30 @@@ class CharacterRenderer implements ISer
+      const animating = this.source.isAnimating();
+      const t = performance.now() / 1000;
+  
+ -    target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr, bitmapSize }) => {
+ +    target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr }) => {
+        // Collect first so only the newest characters animate.
+++<<<<<<< Updated upstream
+ +      const items: Array<{ i: number; name: string; sprite: HTMLImageElement }> = [];
+++=======
++       const items: Array<{
++         i: number;
++         name: string;
++         pattern: CandlePattern;
++         sprite: HTMLImageElement;
++         stage: CandleStoryStage;
++       }> = [];
+++>>>>>>> Stashed changes
+        for (let i = from; i <= to; i++) {
+ -        const pattern = detectCandlePatternAt(candles, i).pattern;
+ -        const name = PATTERN_TO_CHARACTER[pattern];
+ +        const name = PATTERN_TO_CHARACTER[detectCandlePatternAt(candles, i).pattern];
+          if (!name) continue;
+          const sprite = this.source.sprites.get(name);
+++<<<<<<< Updated upstream
+ +        if (sprite) items.push({ i, name, sprite });
+++=======
++         const bias = PATTERN_BIAS[pattern];
++         if (!sprite || !bias) continue;
++         items.push({ i, name, pattern, sprite, stage: evaluateCandleStory(candles, i, bias, options.confirmWindow) });
+++>>>>>>> Stashed changes
+        }
+        const firstAnimated = items.length - options.maxAnimated;
+  
+@@@ -144,10 -248,154 +264,160 @@@
+            ctx.restore();
+          }
+        });
+++<<<<<<< Updated upstream
+++=======
++ 
++       if (options.showLabels) {
++         const labels: LabelInput[] = [];
++         for (const { i, pattern, stage } of items) {
++           const lost = stage === "failed" || stage === "expired";
++           if (lost && !options.labelFailed) continue;
++           const bar = data[i];
++           const text = PATTERN_LABEL[pattern];
++           if (!bar || !text) continue;
++           const bias = PATTERN_BIAS[pattern];
++           const action = options.actionWords && bias
++             ? actionForCandle(this.source.setups, candles[i]!.time, bias, barSeconds)
++             : undefined;
++           const x = chart.timeScale().logicalToCoordinate(i as never);
++           const yHigh = series.priceToCoordinate(bar.high);
++           const yLow = series.priceToCoordinate(bar.low);
++           if (x === null || yHigh === null || yLow === null) continue;
++           labels.push({
++             x,
++             yHigh,
++             yLow,
++             text,
++             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
++             action,
++             alpha: lost ? 0.45 : 1,
++           });
++         }
++         drawLabels(ctx, labels, {
++           hpr,
++           vpr,
++           width: bitmapSize.width,
++           height: bitmapSize.height,
++           fontPx: options.labelFontPx,
++           leadPx: options.labelLeadPx,
++         });
++       }
+++>>>>>>> Stashed changes
+      });
+    }
+  }
+  
+++<<<<<<< Updated upstream
+++=======
++ interface LabelInput {
++   x: number;
++   yHigh: number;
++   yLow: number;
++   text: string;
++   color: string;
++   /** Sweep, Break or Hold, shown as a last line under the name. */
++   action?: CandleAction;
++   alpha?: number;
++ }
++ 
++ /**
++  * Pattern-name tags: a short leader line from the wick to a small tag showing
++  * the real pattern name. Tags sit above the candle, stack upward when a
++  * neighbour would overlap, and flip below the candle if there is no room above.
++  */
++ function drawLabels(
++   ctx: CanvasRenderingContext2D,
++   labels: LabelInput[],
++   v: { hpr: number; vpr: number; width: number; height: number; fontPx: number; leadPx: number },
++ ) {
++   const { hpr, vpr } = v;
++   const fontPx = v.fontPx * vpr;
++   const padX = 5 * hpr;
++   const padY = 3 * vpr;
++   const margin = 2 * vpr;
++   const lead = v.leadPx * vpr;
++   const lineH = fontPx * 1.15;
++   const radius = 4 * hpr;
++   const placed: Array<{ x1: number; x2: number; y1: number; y2: number }> = [];
++ 
++   ctx.save();
++   ctx.font = `600 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
++   ctx.textAlign = "center";
++   ctx.textBaseline = "middle";
++   ctx.lineWidth = Math.max(1, hpr);
++ 
++   for (const l of labels) {
++     const cx = l.x * hpr;
++     // Multi-word names wrap one word per line; an action word goes last.
++     const lines: Array<{ text: string; color: string }> = l.text
++       .split(" ")
++       .map((w) => ({ text: w, color: "#f3f4f6" }));
++     if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
++     const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
++     const boxW = textW + padX * 2;
++     const boxH = lineH * lines.length + padY * 2;
++     const x1 = Math.min(Math.max(cx - boxW / 2, 2 * hpr), Math.max(2 * hpr, v.width - boxW - 2 * hpr));
++     const x2 = x1 + boxW;
++ 
++     // Candidate positions: above first (stepping higher), then below.
++     const candidates: Array<{ y1: number; fromY: number; toY: number }> = [];
++     for (const above of [true, false]) {
++       for (let level = 0; level < 4; level++) {
++         const step = level * (boxH + margin);
++         if (above) {
++           const fromY = l.yHigh * vpr - 3 * vpr;
++           const bottom = fromY - lead - step;
++           candidates.push({ y1: bottom - boxH, fromY, toY: bottom });
++         } else {
++           const fromY = l.yLow * vpr + 3 * vpr;
++           const top = fromY + lead + step;
++           candidates.push({ y1: top, fromY, toY: top });
++         }
++       }
++     }
++     const spot = candidates.find((c) => {
++       if (c.y1 < 0 || c.y1 + boxH > v.height) return false;
++       return !placed.some(
++         (p) => x1 < p.x2 + margin && x2 > p.x1 - margin && c.y1 < p.y2 + margin && c.y1 + boxH > p.y1 - margin,
++       );
++     });
++     if (!spot) continue;
++     placed.push({ x1, x2, y1: spot.y1, y2: spot.y1 + boxH });
++ 
++     ctx.globalAlpha = l.alpha ?? 1;
++ 
++     // Leader line from the wick to the tag.
++     const lineX = Math.min(Math.max(cx, x1 + radius), x2 - radius);
++     ctx.strokeStyle = l.color;
++     ctx.beginPath();
++     ctx.moveTo(cx, spot.fromY);
++     ctx.lineTo(lineX, spot.toY);
++     ctx.stroke();
++ 
++     // Tag.
++     const y1 = spot.y1;
++     const y2 = y1 + boxH;
++     ctx.beginPath();
++     ctx.moveTo(x1 + radius, y1);
++     ctx.arcTo(x2, y1, x2, y2, radius);
++     ctx.arcTo(x2, y2, x1, y2, radius);
++     ctx.arcTo(x1, y2, x1, y1, radius);
++     ctx.arcTo(x1, y1, x2, y1, radius);
++     ctx.closePath();
++     ctx.fillStyle = "rgba(15, 17, 23, 0.9)";
++     ctx.fill();
++     ctx.strokeStyle = l.color;
++     ctx.stroke();
++     lines.forEach((line, k) => {
++       ctx.fillStyle = line.color;
++       ctx.fillText(line.text, x1 + boxW / 2, y1 + padY + lineH * (k + 0.5) + vpr * 0.5);
++     });
++     ctx.globalAlpha = 1;
++   }
++   ctx.restore();
++ }
++ 
+++>>>>>>> Stashed changes
+  /**
+   * Head and feet keep their proportions; only the middle stretches, so faces
+   * do not distort when a candle is tall.

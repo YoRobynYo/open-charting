@@ -1,0 +1,108 @@
+diff --git a/src/pages/TradingPage.tsx b/src/pages/TradingPage.tsx
+index e10a1a9..bf6e2a4 100644
+--- a/src/pages/TradingPage.tsx
++++ b/src/pages/TradingPage.tsx
+@@ -1,5 +1,4 @@
+ import { useCallback, useMemo, useRef, useState } from "react";
+-import { Bot } from "lucide-react";
+ import { MobileAccountBar, MobileTradingPanel } from "../components/MobileTradingPanel.tsx";
+ import { NewsFeed as MarketNewsFeed } from "../components/TradingPowerFeatures.tsx";
+ import { TradingViewTechnicalAnalysis } from "../components/TradingViewWidgets.tsx";
+@@ -265,6 +264,7 @@ export function TradingPage() {
+               isReplaying={isReplaying}
+               activePlugins={activePlugins}
+               aiPoints={chartAiPoints}
++              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}
+               onTogglePlugin={handleTogglePlugin}
+               accountEquity={account?.equity ?? account?.balance ?? 0}
+               accountId={activeAccountId}
+@@ -272,18 +272,6 @@ export function TradingPage() {
+               onClearDrawings={clearDrawings}
+               onClearIndicators={handleClearIndicators}
+             />
+-            {aiEnabled && !aiDrawerOpen && (
+-              <button
+-                type="button"
+-                onClick={() => setAiDrawerOpen(true)}
+-                className="absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-card/95 px-2.5 py-1.5 text-xs font-medium text-primary shadow-lg backdrop-blur-sm hover:bg-primary/10"
+-                title="Open AI chart analysis"
+-                aria-label="Open AI chart analysis"
+-              >
+-                <Bot className="h-3.5 w-3.5" />
+-                Open AI
+-              </button>
+-            )}
+           </div>
+ 
+           {/* Replay timeline scrubber — disabled until the feature is QA'd */}
+diff --git a/src/pages/trading/ChartPanel.tsx b/src/pages/trading/ChartPanel.tsx
+index 8e46c87..a2ca0f8 100644
+--- a/src/pages/trading/ChartPanel.tsx
++++ b/src/pages/trading/ChartPanel.tsx
+@@ -260,6 +260,8 @@ export interface ChartPanelProps {
+   }>;
+   activePlugins?: string[];
+   aiPoints?: AiChartPoint[];
++  /** Opens the AI analysis sidebar from the chart tool rail. */
++  onOpenAi?: () => void;
+   /** Toggle a chart plugin (session breaks etc.) — used by the settings dialog. */
+   onTogglePlugin?: (id: string) => void;
+   /** Account equity — feeds the position tool's $-risk / size readout. */
+@@ -1109,6 +1111,7 @@ export function ChartPanel({
+   replayTradeEvents,
+   activePlugins = [],
+   aiPoints = [],
++  onOpenAi,
+   onTogglePlugin,
+   accountEquity = 0,
+   accountId,
+@@ -2125,7 +2128,11 @@ export function ChartPanel({
+       <div ref={containerRef} className="w-full h-full" onContextMenu={handleChartContextMenu} />
+ 
+       {/* Left vertical tool rail (TradingView-style grouped flyouts) */}
+-      <DrawingToolRail drawingTool={drawingTool} onDrawingTool={(t) => onDrawingToolSelect?.(t)} />
++      <DrawingToolRail
++        drawingTool={drawingTool}
++        onDrawingTool={(t) => onDrawingToolSelect?.(t)}
++        onOpenAi={onOpenAi}
++      />
+     </div>
+   );
+ }
+diff --git a/src/pages/trading/DrawingToolRail.tsx b/src/pages/trading/DrawingToolRail.tsx
+index e4ae382..a25a76a 100644
+--- a/src/pages/trading/DrawingToolRail.tsx
++++ b/src/pages/trading/DrawingToolRail.tsx
+@@ -2,6 +2,7 @@ import {
+   ArrowDownRight,
+   ArrowRight,
+   ArrowUpRight,
++  Bot,
+   Circle,
+   Equal,
+   EyeOff,
+@@ -156,9 +157,11 @@ function RailGroup({
+ export function DrawingToolRail({
+   drawingTool,
+   onDrawingTool,
++  onOpenAi,
+ }: {
+   drawingTool: DrawingTool;
+   onDrawingTool: (t: DrawingTool) => void;
++  onOpenAi?: () => void;
+ }) {
+   const [openGroup, setOpenGroup] = useState<string | null>(null);
+   const [hidden, setHidden] = useState(false);
+@@ -231,6 +234,12 @@ export function DrawingToolRail({
+           onSelect={select}
+         />
+       ))}
++      {onOpenAi && (
++        <>
++          <div className="my-0.5 w-full border-t border-border/50" />
++          <RailButton icon={Bot} title="Open AI chart analysis" onClick={onOpenAi} />
++        </>
++      )}
+       <div className="my-0.5 w-full border-t border-border/50" />
+       <RailButton icon={EyeOff} title="Hide toolbar" onClick={hide} />
+     </div>

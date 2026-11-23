@@ -1,0 +1,16 @@
+[1mdiff --git a/src/pages/TradingPage.tsx b/src/pages/TradingPage.tsx[m
+[1mindex bf6e2a4..529e9ef 100644[m
+[1m--- a/src/pages/TradingPage.tsx[m
+[1m+++ b/src/pages/TradingPage.tsx[m
+[36m@@ -264,7 +264,10 @@[m [mexport function TradingPage() {[m
+               isReplaying={isReplaying}[m
+               activePlugins={activePlugins}[m
+               aiPoints={chartAiPoints}[m
+[31m-              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}[m
+[32m+[m[32m              onOpenAi={() => {[m
+[32m+[m[32m                if (!aiEnabled) handleTogglePlugin("ai");[m
+[32m+[m[32m                setAiDrawerOpen(true);[m
+[32m+[m[32m              }}[m
+               onTogglePlugin={handleTogglePlugin}[m
+               accountEquity={account?.equity ?? account?.balance ?? 0}[m
+               accountId={activeAccountId}[m

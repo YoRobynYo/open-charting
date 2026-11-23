@@ -1,0 +1,232 @@
+diff --git a/src/__tests__/candle-action.test.ts b/src/__tests__/candle-action.test.ts
+new file mode 100644
+index 0000000..da475d7
+--- /dev/null
++++ b/src/__tests__/candle-action.test.ts
+@@ -0,0 +1,36 @@
++import { describe, expect, it } from "vitest";
++import { actionForCandle } from "../lib/chart-plugins/character-candles/candle-action.ts";
++
++const BAR = 300;
++const long = { direction: "long" as const, sweepTime: 1000, breakTime: 2000, retestTime: 3000 };
++
++describe("actionForCandle", () => {
++  it("says Hold on the retest candle of a same-direction setup", () => {
++    expect(actionForCandle([long], 3000, "bullish", BAR)).toBe("Hold");
++  });
++
++  it("says Break and Sweep on their own candles", () => {
++    expect(actionForCandle([long], 2000, "bullish", BAR)).toBe("Break");
++    expect(actionForCandle([long], 1000, "bullish", BAR)).toBe("Sweep");
++  });
++
++  it("allows one candle either side but no more", () => {
++    expect(actionForCandle([long], 3000 + BAR, "bullish", BAR)).toBe("Hold");
++    expect(actionForCandle([long], 3000 - BAR, "bullish", BAR)).toBe("Hold");
++    expect(actionForCandle([long], 3000 + BAR * 2, "bullish", BAR)).toBeUndefined();
++  });
++
++  it("ignores setups going the other way", () => {
++    expect(actionForCandle([long], 3000, "bearish", BAR)).toBeUndefined();
++    expect(actionForCandle([{ ...long, direction: "short" }], 3000, "bullish", BAR)).toBeUndefined();
++  });
++
++  it("prefers the later step when two are close together", () => {
++    const tight = { direction: "short" as const, breakTime: 2000, retestTime: 2000 + BAR };
++    expect(actionForCandle([tight], 2000 + BAR, "bearish", BAR)).toBe("Hold");
++  });
++
++  it("returns nothing when there are no setups", () => {
++    expect(actionForCandle([], 3000, "bullish", BAR)).toBeUndefined();
++  });
++});
+diff --git a/src/lib/chart-plugins/character-candles/candle-action.ts b/src/lib/chart-plugins/character-candles/candle-action.ts
+new file mode 100644
+index 0000000..10eb008
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/candle-action.ts
+@@ -0,0 +1,41 @@
++import type { CandleBias } from "./candle-story";
++
++/** The step of an ICT Structure 4 trade setup that a pattern candle lines up with. */
++export type CandleAction = "Sweep" | "Break" | "Hold";
++
++interface SetupSteps {
++  direction: "long" | "short";
++  sweepTime?: number;
++  breakTime?: number;
++  retestTime?: number;
++}
++
++const STEPS: Array<[keyof Omit<SetupSteps, "direction">, CandleAction]> = [
++  ["retestTime", "Hold"],
++  ["breakTime", "Break"],
++  ["sweepTime", "Sweep"],
++];
++
++/**
++ * Says what a pattern candle is doing in a trade setup going the same way:
++ * Hold (a retest held), Break (a swing level broke) or Sweep (liquidity was
++ * taken). A candle counts as lined up if it is within `toleranceSeconds` of the
++ * step, which is one candle either side when given the candle length. Later
++ * steps win. Returns undefined when the candle is not part of any setup.
++ */
++export function actionForCandle(
++  setups: readonly SetupSteps[],
++  time: number,
++  bias: CandleBias,
++  toleranceSeconds: number,
++): CandleAction | undefined {
++  const wanted = bias === "bullish" ? "long" : "short";
++  for (const [key, action] of STEPS) {
++    const lined = setups.some((setup) => {
++      const at = setup[key];
++      return setup.direction === wanted && at !== undefined && Math.abs(at - time) <= toleranceSeconds;
++    });
++    if (lined) return action;
++  }
++  return undefined;
++}
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index fb9e997..401aaea 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -15,6 +15,8 @@ import {
+   type CandleBias,
+   type CandleStoryStage,
+ } from "./candle-story";
++import { actionForCandle, type CandleAction } from "./candle-action";
++import { detectTradeSetups, type TradeSetup } from "../trade-setup/trade-setup";
+ 
+ /** Which character sprite each detected pattern uses. Add more as you create art. */
+ export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
+@@ -44,6 +46,13 @@ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
+   "bearish-marubozu": "Marubozu",
+ };
+ 
++/** Text colour of the action word under a pattern name. */
++const ACTION_COLOR: Record<CandleAction, string> = {
++  Sweep: "#c084fc",
++  Break: "#93c5fd",
++  Hold: "#fbbf24",
++};
++
+ /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
+ export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
+   hammer: "bullish",
+@@ -102,6 +111,10 @@ export interface CharacterCandlesOptions {
+   confirmWindow: number;
+   /** Keep a faded name tag on failed or expired patterns. Off keeps the chart clean. */
+   labelFailed: boolean;
++  /** Add Sweep, Break or Hold under a pattern name when it lines up with an ICT Structure 4 step. */
++  actionWords: boolean;
++  /** How many recent trade setups to look through for those action words. */
++  maxSetups: number;
+   /** Label text size in CSS pixels. */
+   labelFontPx: number;
+   /** Length of the leader line between the wick and the label, in CSS pixels. */
+@@ -122,6 +135,8 @@ const DEFAULTS: CharacterCandlesOptions = {
+   showLabels: true,
+   confirmWindow: DEFAULT_CONFIRM_WINDOW,
+   labelFailed: false,
++  actionWords: true,
++  maxSetups: 6,
+   labelFontPx: 11,
+   labelLeadPx: 10,
+ };
+@@ -158,6 +173,9 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+     const from = Math.max(0, Math.floor(range.from) - 1);
+     const to = Math.min(data.length - 1, Math.ceil(range.to) + 1);
+     const candles = data as unknown as Candle[];
++    const barSeconds = candles.length > 1
++      ? Math.abs(candles[candles.length - 1]!.time - candles[candles.length - 2]!.time)
++      : 0;
+ 
+     const animating = this.source.isAnimating();
+     const t = performance.now() / 1000;
+@@ -239,6 +257,10 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           const bar = data[i];
+           const text = PATTERN_LABEL[pattern];
+           if (!bar || !text) continue;
++          const bias = PATTERN_BIAS[pattern];
++          const action = options.actionWords && bias
++            ? actionForCandle(this.source.setups, candles[i]!.time, bias, barSeconds)
++            : undefined;
+           const x = chart.timeScale().logicalToCoordinate(i as never);
+           const yHigh = series.priceToCoordinate(bar.high);
+           const yLow = series.priceToCoordinate(bar.low);
+@@ -249,7 +271,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+             yLow,
+             text,
+             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
+-            status: stage === "confirmed" ? "confirmed" : stage === "failed" ? "failed" : undefined,
++            action,
+             alpha: lost ? 0.45 : 1,
+           });
+         }
+@@ -272,8 +294,8 @@ interface LabelInput {
+   yLow: number;
+   text: string;
+   color: string;
+-  /** Extra last line once the story has played out. */
+-  status?: "confirmed" | "failed";
++  /** Sweep, Break or Hold, shown as a last line under the name. */
++  action?: CandleAction;
+   alpha?: number;
+ }
+ 
+@@ -305,12 +327,11 @@ function drawLabels(
+ 
+   for (const l of labels) {
+     const cx = l.x * hpr;
+-    // Multi-word names wrap one word per line; a decided story adds a last line.
++    // Multi-word names wrap one word per line; an action word goes last.
+     const lines: Array<{ text: string; color: string }> = l.text
+       .split(" ")
+       .map((w) => ({ text: w, color: "#f3f4f6" }));
+-    if (l.status === "confirmed") lines.push({ text: "✔ Confirmed", color: "#4ade80" });
+-    if (l.status === "failed") lines.push({ text: "✖ Failed", color: "#f87171" });
++    if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
+     const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
+     const boxW = textW + padX * 2;
+     const boxH = lineH * lines.length + padY * 2;
+@@ -429,6 +450,9 @@ export class CharacterCandles extends PluginBase {
+   private _options: CharacterCandlesOptions;
+   private _views: CharacterPaneView[];
+   public sprites: SpriteCache;
++  /** Recent Structure 4 trade setups, used for the Sweep / Break / Hold words. */
++  public setups: TradeSetup[] = [];
++  private _setupKey = "";
+ 
+   constructor(options: Partial<CharacterCandlesOptions> = {}) {
+     super();
+@@ -448,6 +472,7 @@ export class CharacterCandles extends PluginBase {
+ 
+   public override attached(param: Parameters<PluginBase["attached"]>[0]) {
+     super.attached(param);
++    this.recomputeSetups();
+     if (!this._options.animate || this._reduceMotion) return;
+     const tick = () => {
+       this.requestUpdate();
+@@ -466,7 +491,21 @@ export class CharacterCandles extends PluginBase {
+     return { chart: this.chart, series: this.series, options: this._options };
+   }
+ 
++  private recomputeSetups() {
++    if (!this._options.actionWords) {
++      this.setups = [];
++      return;
++    }
++    const candles = this.series.data() as unknown as Candle[];
++    // Once per candle is enough: the steps are read from closed candles.
++    const key = `${candles.length}:${candles.at(-1)?.time ?? 0}`;
++    if (key === this._setupKey) return;
++    this._setupKey = key;
++    this.setups = detectTradeSetups(candles, { maxSetups: this._options.maxSetups });
++  }
++
+   protected dataUpdated() {
++    this.recomputeSetups();
+     this.requestUpdate();
+   }
+ 

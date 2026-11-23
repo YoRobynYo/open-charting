@@ -17,6 +17,15 @@ import {
 } from "./candle-story";
 import { actionForCandle, type CandleAction } from "./candle-action";
 import { detectTradeSetups, type TradeSetup } from "../trade-setup/trade-setup";
+import type { IctCandle } from "../ict-analysis/ict-analysis";
+import {
+  DEFAULT_STRUCTURE_LOOKBACK_SECONDS,
+  DEFAULT_STRUCTURE_STRENGTH,
+  detectStructureBreaks,
+  stepWordsByTime,
+  type StepWord,
+  type StructureBreak,
+} from "./structure-breaks";
 
 /** Which character sprite each detected pattern uses. Add more as you create art. */
 export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
@@ -52,6 +61,13 @@ const ACTION_COLOR: Record<CandleAction, string> = {
   Break: "#93c5fd",
   Hold: "#fbbf24",
 };
+
+/** Colour of a Retest, Hold or Trade word under a candle. */
+function stepColor(word: StepWord): string {
+  if (word.kind === "retest") return "#38bdf8";
+  if (word.kind === "hold") return "#fbbf24";
+  return word.direction === "bullish" ? "#22c55e" : "#f43f5e";
+}
 
 /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
 export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
@@ -115,6 +131,12 @@ export interface CharacterCandlesOptions {
   actionWords: boolean;
   /** How many recent trade setups to look through for those action words. */
   maxSetups: number;
+  /** Draw BOS and CHoCH as a labelled line with a dot at each end. */
+  showStructure: boolean;
+  /** Candles either side of a swing before it counts for BOS / CHoCH. Bigger means fewer breaks. */
+  structureStrength: number;
+  /** How many days back BOS / CHoCH are drawn from the latest candle. */
+  structureDays: number;
   /** Label text size in CSS pixels. */
   labelFontPx: number;
   /** Length of the leader line between the wick and the label, in CSS pixels. */
@@ -132,10 +154,13 @@ const DEFAULTS: CharacterCandlesOptions = {
   feetSlice: 0.2,
   animate: true,
   maxAnimated: 40,
+  showStructure: true,
+  structureStrength: DEFAULT_STRUCTURE_STRENGTH,
+  structureDays: DEFAULT_STRUCTURE_LOOKBACK_SECONDS / 86400,
   showLabels: true,
   confirmWindow: DEFAULT_CONFIRM_WINDOW,
-  labelFailed: false,
-  actionWords: true,
+  labelFailed: true,
+  actionWords: false,
   maxSetups: 6,
   labelFontPx: 11,
   labelLeadPx: 10,
@@ -168,7 +193,8 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
     if (!range || data.length === 0) return;
 
     const barSpacing = chart.timeScale().options().barSpacing;
-    if (barSpacing < options.minBarSpacingPx) return;
+    // Zoomed far out the sprites are too small to read, but BOS / CHoCH still help.
+    const showCharacters = barSpacing >= options.minBarSpacingPx;
 
     const from = Math.max(0, Math.floor(range.from) - 1);
     const to = Math.min(data.length - 1, Math.ceil(range.to) + 1);
@@ -181,12 +207,24 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
     const t = performance.now() / 1000;
 
     target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr, bitmapSize }) => {
+      if (options.showStructure) {
+        drawStructureBreaks(ctx, this.source.structure, {
+          chart,
+          series,
+          hpr,
+          vpr,
+          width: bitmapSize.width,
+          fontPx: options.labelFontPx,
+        });
+      }
+      if (!showCharacters) return;
+
       // Collect first so only the newest characters animate.
       const items: Array<{
         i: number;
         name: string;
         pattern: CandlePattern;
-        sprite: HTMLImageElement;
+        sprite: HTMLImageElement | null;
         stage: CandleStoryStage;
       }> = [];
       for (let i = from; i <= to; i++) {
@@ -195,7 +233,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
         if (!name) continue;
         const sprite = this.source.sprites.get(name);
         const bias = PATTERN_BIAS[pattern];
-        if (!sprite || !bias) continue;
+        if (!bias) continue;
         items.push({ i, name, pattern, sprite, stage: evaluateCandleStory(candles, i, bias, options.confirmWindow) });
       }
       const firstAnimated = items.length - options.maxAnimated;
@@ -213,7 +251,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
         const baseW = Math.min(barSpacing * options.widthRatio, options.maxWidthPx);
         const spriteH = Math.min(bodyH, Math.max(options.minHeightPx, baseW * options.maxAspect));
 
-        const anim = animating && n >= firstAnimated ? CHARACTER_ANIMATIONS[name] : undefined;
+        const anim = animating && sprite && n >= firstAnimated ? CHARACTER_ANIMATIONS[name] : undefined;
         const m = anim?.motion(t, i);
         const w = baseW * (m?.scaleW ?? 1);
         const left = x - w / 2;
@@ -231,7 +269,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
           ctx.shadowColor = PATTERN_COLOR[pattern] ?? "#ffffff";
           ctx.shadowBlur = 16 * hpr;
         }
-        drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, spriteH * vpr, options.headSlice, options.feetSlice);
+        if (sprite) drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, spriteH * vpr, options.headSlice, options.feetSlice);
         ctx.restore();
 
         const e = anim?.emitter;
@@ -251,6 +289,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
 
       if (options.showLabels) {
         const labels: LabelInput[] = [];
+        const stepTimes = new Set<number>();
         for (const { i, pattern, stage } of items) {
           const lost = stage === "failed" || stage === "expired";
           if (lost && !options.labelFailed) continue;
@@ -258,9 +297,13 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
           const text = PATTERN_LABEL[pattern];
           if (!bar || !text) continue;
           const bias = PATTERN_BIAS[pattern];
-          const action = options.actionWords && bias
+          // With BOS / CHoCH on, the Hold word comes from the line it belongs to.
+          const setupAction = options.actionWords && bias
             ? actionForCandle(this.source.setups, candles[i]!.time, bias, barSeconds)
             : undefined;
+          const action = setupAction === "Hold" && options.showStructure ? undefined : setupAction;
+          const stepWords = options.showStructure ? this.source.steps.get(candles[i]!.time) : undefined;
+          if (stepWords) stepTimes.add(candles[i]!.time);
           const x = chart.timeScale().logicalToCoordinate(i as never);
           const yHigh = series.priceToCoordinate(bar.high);
           const yLow = series.priceToCoordinate(bar.low);
@@ -272,8 +315,30 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
             text,
             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
             action,
+            steps: stepWords?.map((w) => ({ text: w.text, color: stepColor(w) })),
             alpha: lost ? 0.45 : 1,
           });
+        }
+        // Candles with no pattern name still get a small tag for their step.
+        if (options.showStructure) {
+          for (let i = from; i <= to; i++) {
+            const time = candles[i]!.time;
+            const words = this.source.steps.get(time);
+            const bar = data[i];
+            if (!words || !bar || stepTimes.has(time)) continue;
+            const x = chart.timeScale().logicalToCoordinate(i as never);
+            const yHigh = series.priceToCoordinate(bar.high);
+            const yLow = series.priceToCoordinate(bar.low);
+            if (x === null || yHigh === null || yLow === null) continue;
+            labels.push({
+              x,
+              yHigh,
+              yLow,
+              text: "",
+              color: stepColor(words[0]!),
+              steps: words.map((w) => ({ text: w.text, color: stepColor(w) })),
+            });
+          }
         }
         drawLabels(ctx, labels, {
           hpr,
@@ -288,6 +353,88 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
   }
 }
 
+/**
+ * BOS and CHoCH: a line at the broken level from its swing to the candle that
+ * closed through it, a dot at each end, and the word in a small tag. Bullish
+ * breaks are green with the tag above the line, bearish are red with the tag
+ * below. CHoCH (a break against the trend) is dashed; BOS is solid.
+ */
+export function drawStructureBreaks(
+  ctx: CanvasRenderingContext2D,
+  breaks: readonly StructureBreak[],
+  v: {
+    chart: ReturnType<CharacterCandles["context"]>["chart"];
+    series: ReturnType<CharacterCandles["context"]>["series"];
+    hpr: number;
+    vpr: number;
+    width: number;
+    fontPx: number;
+  },
+) {
+  if (breaks.length === 0) return;
+  const { chart, series, hpr, vpr } = v;
+  ctx.save();
+  ctx.font = `700 ${v.fontPx * vpr}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = Math.max(1, hpr);
+  const tagH = (v.fontPx + 5) * vpr;
+
+  for (const b of breaks) {
+    const x1 = chart.timeScale().timeToCoordinate(b.startTime as Time);
+    const x2 = chart.timeScale().timeToCoordinate(b.time as Time);
+    const y = series.priceToCoordinate(b.price);
+    if (x1 === null || x2 === null || y === null) continue;
+    if (x2 * hpr < 0 || x1 * hpr > v.width) continue;
+
+    const color = b.direction === "bullish" ? "#22c55e" : "#f43f5e";
+    const yPx = y * vpr;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.setLineDash(b.kind === "CHoCH" ? [4 * hpr, 3 * hpr] : []);
+    ctx.beginPath();
+    ctx.moveTo(x1 * hpr, yPx);
+    ctx.lineTo(x2 * hpr, yPx);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const px of [x1, x2]) {
+      ctx.beginPath();
+      ctx.arc(px * hpr, yPx, 2.5 * hpr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (b.retest) {
+      // Carry the level on to the candle that came back to it and ring that candle.
+      const xr = chart.timeScale().timeToCoordinate(b.retest.time as Time);
+      if (xr !== null) {
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(x2 * hpr, yPx);
+        ctx.lineTo(xr * hpr, yPx);
+        ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
+        ctx.beginPath();
+        ctx.arc(xr * hpr, yPx, 3.5 * hpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+
+    // Keep the tag on screen when the swing is scrolled off to the left.
+    const visibleLeft = Math.max(x1 * hpr, 0);
+    const tagW = ctx.measureText(b.kind).width + 10 * hpr;
+    const cx = Math.min(Math.max((visibleLeft + x2 * hpr) / 2, tagW / 2), v.width - tagW / 2);
+    const cy = yPx + (b.direction === "bullish" ? -1 : 1) * (tagH / 2 + 2 * vpr);
+    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+    ctx.fillRect(cx - tagW / 2, cy - tagH / 2, tagW, tagH);
+    ctx.fillStyle = color;
+    ctx.fillText(b.kind, cx, cy);
+  }
+  ctx.restore();
+}
+
 interface LabelInput {
   x: number;
   yHigh: number;
@@ -296,6 +443,8 @@ interface LabelInput {
   color: string;
   /** Sweep, Break or Hold, shown as a last line under the name. */
   action?: CandleAction;
+  /** Retest, Hold and Trade words from a BOS / CHoCH, shown under the name. */
+  steps?: Array<{ text: string; color: string }>;
   alpha?: number;
 }
 
@@ -304,7 +453,7 @@ interface LabelInput {
  * the real pattern name. Tags sit above the candle, stack upward when a
  * neighbour would overlap, and flip below the candle if there is no room above.
  */
-function drawLabels(
+export function drawLabels(
   ctx: CanvasRenderingContext2D,
   labels: LabelInput[],
   v: { hpr: number; vpr: number; width: number; height: number; fontPx: number; leadPx: number },
@@ -330,8 +479,10 @@ function drawLabels(
     // Multi-word names wrap one word per line; an action word goes last.
     const lines: Array<{ text: string; color: string }> = l.text
       .split(" ")
+      .filter(Boolean)
       .map((w) => ({ text: w, color: "#f3f4f6" }));
     if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
+    lines.push(...(l.steps ?? []));
     const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
     const boxW = textW + padX * 2;
     const boxH = lineH * lines.length + padY * 2;
@@ -452,6 +603,10 @@ export class CharacterCandles extends PluginBase {
   public sprites: SpriteCache;
   /** Recent Structure 4 trade setups, used for the Sweep / Break / Hold words. */
   public setups: TradeSetup[] = [];
+  /** BOS and CHoCH drawn on the chart. */
+  public structure: StructureBreak[] = [];
+  /** The Retest, Hold and Trade words of those breaks, by candle time. */
+  public steps = new Map<number, StepWord[]>();
   private _setupKey = "";
 
   constructor(options: Partial<CharacterCandlesOptions> = {}) {
@@ -492,16 +647,21 @@ export class CharacterCandles extends PluginBase {
   }
 
   private recomputeSetups() {
-    if (!this._options.actionWords) {
-      this.setups = [];
-      return;
-    }
     const candles = this.series.data() as unknown as Candle[];
     // Once per candle is enough: the steps are read from closed candles.
     const key = `${candles.length}:${candles.at(-1)?.time ?? 0}`;
     if (key === this._setupKey) return;
     this._setupKey = key;
-    this.setups = detectTradeSetups(candles, { maxSetups: this._options.maxSetups });
+    this.setups = this._options.actionWords
+      ? detectTradeSetups(candles, { maxSetups: this._options.maxSetups })
+      : [];
+    this.structure = this._options.showStructure
+      ? detectStructureBreaks(candles as unknown as IctCandle[], {
+        strength: this._options.structureStrength,
+        lookbackSeconds: this._options.structureDays * 86400,
+      })
+      : [];
+    this.steps = stepWordsByTime(this.structure);
   }
 
   protected dataUpdated() {

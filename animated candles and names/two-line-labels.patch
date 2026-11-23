@@ -1,0 +1,37 @@
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index 2e56bae..05fab81 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -232,7 +232,7 @@ function drawLabels(
+   const padY = 3 * vpr;
+   const margin = 2 * vpr;
+   const lead = v.leadPx * vpr;
+-  const boxH = fontPx + padY * 2;
++  const lineH = fontPx * 1.15;
+   const radius = 4 * hpr;
+   const placed: Array<{ x1: number; x2: number; y1: number; y2: number }> = [];
+ 
+@@ -244,7 +244,11 @@ function drawLabels(
+ 
+   for (const l of labels) {
+     const cx = l.x * hpr;
+-    const boxW = ctx.measureText(l.text).width + padX * 2;
++    // Multi-word names wrap one word per line, e.g. "Shooting" over "Star".
++    const lines = l.text.split(" ");
++    const textW = Math.max(...lines.map((w) => ctx.measureText(w).width));
++    const boxW = textW + padX * 2;
++    const boxH = lineH * lines.length + padY * 2;
+     const x1 = Math.min(Math.max(cx - boxW / 2, 2 * hpr), Math.max(2 * hpr, v.width - boxW - 2 * hpr));
+     const x2 = x1 + boxW;
+ 
+@@ -296,7 +300,9 @@ function drawLabels(
+     ctx.strokeStyle = l.color;
+     ctx.stroke();
+     ctx.fillStyle = "#f3f4f6";
+-    ctx.fillText(l.text, x1 + boxW / 2, y1 + boxH / 2 + vpr * 0.5);
++    lines.forEach((line, k) => {
++      ctx.fillText(line, x1 + boxW / 2, y1 + padY + lineH * (k + 0.5) + vpr * 0.5);
++    });
+   }
+   ctx.restore();
+ }

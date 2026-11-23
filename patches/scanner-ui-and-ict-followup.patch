@@ -1,0 +1,325 @@
+[1mdiff --git a/src/lib/chart-plugins/indicator-legend.ts b/src/lib/chart-plugins/indicator-legend.ts[m
+[1mindex 16662b3..8f74176 100644[m
+[1m--- a/src/lib/chart-plugins/indicator-legend.ts[m
+[1m+++ b/src/lib/chart-plugins/indicator-legend.ts[m
+[36m@@ -1,14 +1,14 @@[m
+ export interface IndicatorLegendItem {[m
+   label: string;[m
+   color: string;[m
+[31m-  shape: "dot" | "triangle" | "candle";[m
+[32m+[m[32m  shape: "dot" | "line" | "candle";[m
+ }[m
+ [m
+ export const ICT_TRADE_SETUP_LEGEND: IndicatorLegendItem[] = [[m
+   { label: "Liquidity", color: "#a78bfa", shape: "dot" },[m
+   { label: "Sweep confirmed", color: "#fb923c", shape: "dot" },[m
+[31m-  { label: "BOS", color: "#38bdf8", shape: "triangle" },[m
+[31m-  { label: "CHoCH", color: "#d946ef", shape: "triangle" },[m
+[32m+[m[32m  { label: "BOS", color: "#22c55e", shape: "line" },[m
+[32m+[m[32m  { label: "CHoCH", color: "#f43f5e", shape: "line" },[m
+   { label: "Retest / paper candidate", color: "#22c55e", shape: "dot" },[m
+   { label: "Invalidated", color: "#f43f5e", shape: "dot" },[m
+ ];[m
+[36m@@ -24,4 +24,6 @@[m [mexport const ICT_CANDLE_PATTERN_LEGEND: IndicatorLegendItem[] = [[m
+   { label: "Evening Star", color: "#fb7185", shape: "candle" },[m
+   { label: "Bullish Marubozu", color: "#16a34a", shape: "candle" },[m
+   { label: "Bearish Marubozu", color: "#dc2626", shape: "candle" },[m
+[32m+[m[32m  { label: "BOS breakout", color: "#22c55e", shape: "line" },[m
+[32m+[m[32m  { label: "CHoCH breakout", color: "#f43f5e", shape: "line" },[m
+ ];[m
+[1mdiff --git a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[1mindex 49809ca..555b852 100644[m
+[1m--- a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[1m+++ b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[36m@@ -28,6 +28,7 @@[m [minterface PositionedSetup extends TradeSetup {[m
+ [m
+ interface PositionedBreak {[m
+   event: IctEvent;[m
+[32m+[m[32m  startX: number;[m
+   x: number;[m
+   y: number;[m
+ }[m
+[36m@@ -57,8 +58,15 @@[m [mclass TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {[m
+       ctx.textBaseline = "middle";[m
+       const width = scope.bitmapSize.width / scope.horizontalPixelRatio;[m
+ [m
+[31m-      for (const { event, x, y } of this.breaks) {[m
+[31m-        drawInvertedTriangle(ctx, x, y, event.kind === "bos" ? "#38bdf8" : "#d946ef");[m
+[32m+[m[32m      for (const { event, startX, x, y } of this.breaks) {[m
+[32m+[m[32m        drawStructureBreakLine([m
+[32m+[m[32m          ctx,[m
+[32m+[m[32m          startX,[m
+[32m+[m[32m          x,[m
+[32m+[m[32m          y,[m
+[32m+[m[32m          event.kind === "bos" ? "#22c55e" : "#f43f5e",[m
+[32m+[m[32m          event.kind === "bos" ? "BOS" : "CHoCH",[m
+[32m+[m[32m        );[m
+       }[m
+ [m
+       for (const setup of this.setups) {[m
+[36m@@ -75,10 +83,15 @@[m [mclass TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {[m
+           ctx.setLineDash([]);[m
+         }[m
+ [m
+[31m-        const markers: Array<{ x?: number; y?: number; color: string }> = [[m
+[31m-          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa" },[m
+[31m-          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c" },[m
+[31m-          { x: setup.retestX, y: levelY, color: directionColor },[m
+[32m+[m[32m        const markers: Array<{ x?: number; y?: number; color: string; label: string }> = [[m
+[32m+[m[32m          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa", label: "Liquidity" },[m
+[32m+[m[32m          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c", label: "Sweep confirmed" },[m
+[32m+[m[32m          {[m
+[32m+[m[32m            x: setup.retestX,[m
+[32m+[m[32m            y: levelY,[m
+[32m+[m[32m            color: directionColor,[m
+[32m+[m[32m            label: setup.stage === "candidate" ? "Retest / paper candidate" : "Retest pending",[m
+[32m+[m[32m          },[m
+         ];[m
+ [m
+         for (const marker of markers) {[m
+[36m@@ -87,6 +100,7 @@[m [mclass TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {[m
+           ctx.beginPath();[m
+           ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);[m
+           ctx.fill();[m
+[32m+[m[32m          drawMarkerLabel(ctx, marker.x + 7, marker.y - 12, marker.label, marker.color, width);[m
+         }[m
+ [m
+         const planY = setup.entryY ?? levelY;[m
+[36m@@ -146,9 +160,12 @@[m [mclass TradeSetupPaneView implements ISeriesPrimitivePaneView {[m
+     }));[m
+     this.positionedBreaks = this.source.structureEvents()[m
+       .map((event) => {[m
+[32m+[m[32m        const startX = xFor(this.source, event.startTime);[m
+         const x = xFor(this.source, event.time);[m
+         const y = yFor(this.source, event.price);[m
+[31m-        return x === undefined || y === undefined ? undefined : { event, x, y };[m
+[32m+[m[32m        return startX === undefined || x === undefined || y === undefined[m
+[32m+[m[32m          ? undefined[m
+[32m+[m[32m          : { event, startX, x, y };[m
+       })[m
+       .filter((item): item is PositionedBreak => item !== undefined);[m
+   }[m
+[36m@@ -207,18 +224,38 @@[m [mexport class TradeSetupAnalysis extends PluginBase {[m
+   }[m
+ }[m
+ [m
+[31m-function drawInvertedTriangle([m
+[32m+[m[32mfunction drawStructureBreakLine([m
+[32m+[m[32m  ctx: CanvasRenderingContext2D,[m
+[32m+[m[32m  startX: number,[m
+[32m+[m[32m  endX: number,[m
+[32m+[m[32m  y: number,[m
+[32m+[m[32m  color: string,[m
+[32m+[m[32m  label: string,[m
+[32m+[m[32m): void {[m
+[32m+[m[32m  ctx.strokeStyle = color;[m
+[32m+[m[32m  ctx.lineWidth = 1.5;[m
+[32m+[m[32m  ctx.setLineDash([6, 5]);[m
+[32m+[m[32m  ctx.beginPath();[m
+[32m+[m[32m  ctx.moveTo(startX, y);[m
+[32m+[m[32m  ctx.lineTo(endX, y);[m
+[32m+[m[32m  ctx.stroke();[m
+[32m+[m[32m  ctx.setLineDash([]);[m
+[32m+[m[32m  drawMarkerLabel(ctx, Math.min(startX, endX) + 5, y - 14, label, color, Math.max(startX, endX) + 80);[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mfunction drawMarkerLabel([m
+   ctx: CanvasRenderingContext2D,[m
+   x: number,[m
+   y: number,[m
+[32m+[m[32m  label: string,[m
+   color: string,[m
+[32m+[m[32m  width: number,[m
+ ): void {[m
+[31m-  const size = 6;[m
+[32m+[m[32m  const textWidth = ctx.measureText(label).width + 8;[m
+[32m+[m[32m  const labelX = Math.min(Math.max(4, x), width - textWidth - 4);[m
+[32m+[m[32m  ctx.fillStyle = "rgba(9, 12, 18, 0.88)";[m
+[32m+[m[32m  ctx.fillRect(labelX, y - 8, textWidth, 16);[m
+   ctx.fillStyle = color;[m
+[31m-  ctx.beginPath();[m
+[31m-  ctx.moveTo(x - size, y - size);[m
+[31m-  ctx.lineTo(x + size, y - size);[m
+[31m-  ctx.lineTo(x, y + size);[m
+[31m-  ctx.closePath();[m
+[31m-  ctx.fill();[m
+[32m+[m[32m  ctx.textAlign = "left";[m
+[32m+[m[32m  ctx.fillText(label, labelX + 4, y);[m
+ }[m
+[1mdiff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx[m
+[1mindex 9dd841d..a7c9620 100644[m
+[1m--- a/src/pages/trading/ChartToolbar.tsx[m
+[1m+++ b/src/pages/trading/ChartToolbar.tsx[m
+[36m@@ -356,15 +356,15 @@[m [mexport function ChartToolbar({[m
+       <div className="hidden h-4 border-l border-border mx-1 md:block" />[m
+ [m
+       {/* Right-side chart controls: indicators, drawing tools, and AI/plugins. */}[m
+[31m-      <div className="hidden items-center gap-0.5 md:flex">[m
+[32m+[m[32m      <div className="hidden items-center gap-1 md:flex">[m
+         <div className="relative">[m
+           <button[m
+             onClick={onToggleIndicatorMenu}[m
+             className={cn([m
+[31m-              "flex items-center gap-1 rounded px-2 py-1 text-xs",[m
+[32m+[m[32m              "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs transition-colors",[m
+               activeIndicators.length > 0[m
+[31m-                ? "bg-primary/20 text-primary"[m
+[31m-                : "text-muted-foreground hover:bg-secondary",[m
+[32m+[m[32m                ? "bg-primary/20 text-primary shadow-sm"[m
+[32m+[m[32m                : "text-muted-foreground hover:bg-secondary hover:text-foreground",[m
+             )}[m
+           >[m
+             <BarChart3 className="h-3 w-3" />[m
+[36m@@ -395,6 +395,7 @@[m [mexport function ChartToolbar({[m
+             </div>[m
+           )}[m
+         </div>[m
+[32m+[m[32m        <IctLegendDropdown />[m
+         <DrawingToolsDropdown[m
+           drawingTool={drawingTool}[m
+           onDrawingTool={onDrawingTool}[m
+[36m@@ -585,38 +586,69 @@[m [mfunction PluginsDropdown({[m
+               </button>[m
+             );[m
+           })}[m
+[31m-          <div className="mt-1 border-t border-border px-3 py-2">[m
+[31m-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">[m
+[31m-              ICT Trade Setup key[m
+[31m-            </div>[m
+[31m-            {ICT_TRADE_SETUP_LEGEND.map((item) => ([m
+[31m-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">[m
+[31m-                <span[m
+[31m-                  className={cn([m
+[31m-                    "inline-block h-2.5 w-2.5 shrink-0",[m
+[31m-                    item.shape === "dot" ? "rounded-full" : "rotate-45 rounded-[2px]",[m
+[31m-                  )}[m
+[31m-                  style={{ backgroundColor: item.color }}[m
+[31m-                />[m
+[31m-                <span>{item.label}</span>[m
+[31m-              </div>[m
+[31m-            ))}[m
+[31m-            <div className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">[m
+[31m-              ICT Candle Patterns key[m
+[31m-            </div>[m
+[31m-            {ICT_CANDLE_PATTERN_LEGEND.map((item) => ([m
+[31m-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">[m
+[31m-                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />[m
+[31m-                <span>{item.label}</span>[m
+[31m-              </div>[m
+[31m-            ))}[m
+[31m-          </div>[m
+         </div>[m
+       )}[m
+     </div>[m
+   );[m
+ }[m
+ [m
+[32m+[m[32mfunction IctLegendDropdown() {[m
+[32m+[m[32m  const [open, setOpen] = useState(false);[m
+[32m+[m[32m  const containerRef = useRef<HTMLDivElement>(null);[m
+[32m+[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (!open) return;[m
+[32m+[m[32m    const handler = (event: MouseEvent) => {[m
+[32m+[m[32m      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);[m
+[32m+[m[32m    };[m
+[32m+[m[32m    document.addEventListener("mousedown", handler);[m
+[32m+[m[32m    return () => document.removeEventListener("mousedown", handler);[m
+[32m+[m[32m  }, [open]);[m
+[32m+[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div ref={containerRef} className="relative">[m
+[32m+[m[32m      <button[m
+[32m+[m[32m        type="button"[m
+[32m+[m[32m        onClick={() => setOpen((value) => !value)}[m
+[32m+[m[32m        title="ICT colour key"[m
+[32m+[m[32m        className={cn([m
+[32m+[m[32m          "flex items-center gap-1 rounded px-2 py-1 text-xs",[m
+[32m+[m[32m          open ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary",[m
+[32m+[m[32m        )}[m
+[32m+[m[32m      >[m
+[32m+[m[32m        <Layers3 className="h-3 w-3" />[m
+[32m+[m[32m        ICT Key[m
+[32m+[m[32m      </button>[m
+[32m+[m[32m      {open && ([m
+[32m+[m[32m        <div className="absolute right-0 top-full z-50 mt-1 grid w-[34rem] grid-cols-2 gap-4 rounded-lg border border-border bg-card p-3 shadow-xl">[m
+[32m+[m[32m          <LegendColumn title="ICT Structure 4 — Trade Setup" items={ICT_TRADE_SETUP_LEGEND} />[m
+[32m+[m[32m          <LegendColumn title="ICT Structure 3 — Candle Patterns" items={ICT_CANDLE_PATTERN_LEGEND} />[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      )}[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  );[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mfunction LegendColumn({ title, items }: { title: string; items: typeof ICT_TRADE_SETUP_LEGEND }) {[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div>[m
+[32m+[m[32m      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>[m
+[32m+[m[32m      {items.map((item) => ([m
+[32m+[m[32m        <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">[m
+[32m+[m[32m          <span[m
+[32m+[m[32m            className={cn([m
+[32m+[m[32m              "inline-block h-2.5 w-2.5 shrink-0",[m
+[32m+[m[32m              item.shape === "dot" ? "rounded-full" : item.shape === "line" ? "h-px w-3" : "rounded-sm",[m
+[32m+[m[32m            )}[m
+[32m+[m[32m            style={{ backgroundColor: item.color }}[m
+[32m+[m[32m          />[m
+[32m+[m[32m          <span>{item.label}</span>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      ))}[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  );[m
+[32m+[m[32m}[m
+[32m+[m
+ const DRAWING_TOOLS = [[m
+   { tool: "horizontal" as const, icon: Minus, label: "Horizontal Line", shortcut: "Alt+H" },[m
+   { tool: "trendline" as const, icon: TrendingUp, label: "Trendline", shortcut: "Alt+T" },[m
+[1mdiff --git a/src/pages/trading/DrawingToolRail.tsx b/src/pages/trading/DrawingToolRail.tsx[m
+[1mindex e4ae382..5d25278 100644[m
+[1m--- a/src/pages/trading/DrawingToolRail.tsx[m
+[1m+++ b/src/pages/trading/DrawingToolRail.tsx[m
+[36m@@ -104,8 +104,8 @@[m [mfunction RailButton({[m
+       title={title}[m
+       onClick={onClick}[m
+       className={cn([m
+[31m-        "p-1.5 rounded hover:bg-secondary",[m
+[31m-        active ? "bg-primary/20 text-primary" : "text-muted-foreground",[m
+[32m+[m[32m        "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-secondary",[m
+[32m+[m[32m        active ? "bg-primary/20 text-primary shadow-sm" : "text-muted-foreground",[m
+       )}[m
+     >[m
+       <Icon className="h-4 w-4" />[m
+[36m@@ -132,15 +132,15 @@[m [mfunction RailGroup({[m
+     <div className="relative">[m
+       <RailButton icon={Icon} title={group.label} active={Boolean(activeMeta)} onClick={onToggle} />[m
+       {open && ([m
+[31m-        <div className="absolute left-full top-0 ml-1 z-30 min-w-[180px] rounded-md bg-card border border-border shadow-xl py-1">[m
+[32m+[m[32m        <div className="absolute left-full top-0 z-30 ml-1 min-w-[190px] rounded-lg border border-border/80 bg-card/95 py-1.5 shadow-2xl backdrop-blur-md">[m
+           {group.tools.map((t) => ([m
+             <button[m
+               key={t.tool}[m
+               type="button"[m
+               onClick={() => onSelect(t.tool)}[m
+               className={cn([m
+[31m-                "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",[m
+[31m-                activeTool === t.tool && "bg-secondary text-primary",[m
+[32m+[m[32m                "w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-secondary",[m
+[32m+[m[32m                activeTool === t.tool && "bg-primary/15 text-primary",[m
+               )}[m
+             >[m
+               <t.icon className="h-3.5 w-3.5 shrink-0" />[m
+[36m@@ -203,12 +203,12 @@[m [mexport function DrawingToolRail({[m
+     <div[m
+       ref={ref}[m
+       style={drag.style}[m
+[31m-      className="absolute left-1 top-1 z-20 flex flex-col items-center gap-0.5 rounded-md bg-card/90 border border-border p-0.5 backdrop-blur-sm"[m
+[32m+[m[32m      className="absolute left-1 top-1 z-20 flex flex-col items-center gap-1 rounded-lg border border-border/80 bg-card/92 p-1 shadow-lg backdrop-blur-md"[m
+     >[m
+       <div[m
+         onPointerDown={drag.onPointerDown}[m
+         title="Drag to move"[m
+[31m-        className="flex w-full cursor-move justify-center py-0.5 text-muted-foreground/50 hover:text-muted-foreground"[m
+[32m+[m[32m        className="flex w-full cursor-move justify-center rounded-md py-1 text-muted-foreground/45 transition-colors hover:bg-secondary hover:text-muted-foreground"[m
+       >[m
+         <GripVertical className="h-3.5 w-3.5" />[m
+       </div>[m

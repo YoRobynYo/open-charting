@@ -1,0 +1,73 @@
+[1mdiff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx[m
+[1mindex 25d9b78..f2d5f64 100644[m
+[1m--- a/src/pages/trading/ChartToolbar.tsx[m
+[1m+++ b/src/pages/trading/ChartToolbar.tsx[m
+[36m@@ -352,15 +352,15 @@[m [mexport function ChartToolbar({[m
+       <div className="hidden h-4 border-l border-border mx-1 md:block" />[m
+ [m
+       {/* Right-side chart controls: indicators, drawing tools, and AI/plugins. */}[m
+[31m-      <div className="hidden items-center gap-0.5 md:flex">[m
+[32m+[m[32m      <div className="hidden items-center gap-1 md:flex">[m
+         <div className="relative">[m
+           <button[m
+             onClick={onToggleIndicatorMenu}[m
+             className={cn([m
+[31m-              "flex items-center gap-1 rounded px-2 py-1 text-xs",[m
+[32m+[m[32m              "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs transition-colors",[m
+               activeIndicators.length > 0[m
+[31m-                ? "bg-primary/20 text-primary"[m
+[31m-                : "text-muted-foreground hover:bg-secondary",[m
+[32m+[m[32m                ? "bg-primary/20 text-primary shadow-sm"[m
+[32m+[m[32m                : "text-muted-foreground hover:bg-secondary hover:text-foreground",[m
+             )}[m
+           >[m
+             <BarChart3 className="h-3 w-3" />[m
+[1mdiff --git a/src/pages/trading/DrawingToolRail.tsx b/src/pages/trading/DrawingToolRail.tsx[m
+[1mindex e4ae382..5d25278 100644[m
+[1m--- a/src/pages/trading/DrawingToolRail.tsx[m
+[1m+++ b/src/pages/trading/DrawingToolRail.tsx[m
+[36m@@ -104,8 +104,8 @@[m [mfunction RailButton({[m
+       title={title}[m
+       onClick={onClick}[m
+       className={cn([m
+[31m-        "p-1.5 rounded hover:bg-secondary",[m
+[31m-        active ? "bg-primary/20 text-primary" : "text-muted-foreground",[m
+[32m+[m[32m        "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-secondary",[m
+[32m+[m[32m        active ? "bg-primary/20 text-primary shadow-sm" : "text-muted-foreground",[m
+       )}[m
+     >[m
+       <Icon className="h-4 w-4" />[m
+[36m@@ -132,15 +132,15 @@[m [mfunction RailGroup({[m
+     <div className="relative">[m
+       <RailButton icon={Icon} title={group.label} active={Boolean(activeMeta)} onClick={onToggle} />[m
+       {open && ([m
+[31m-        <div className="absolute left-full top-0 ml-1 z-30 min-w-[180px] rounded-md bg-card border border-border shadow-xl py-1">[m
+[32m+[m[32m        <div className="absolute left-full top-0 z-30 ml-1 min-w-[190px] rounded-lg border border-border/80 bg-card/95 py-1.5 shadow-2xl backdrop-blur-md">[m
+           {group.tools.map((t) => ([m
+             <button[m
+               key={t.tool}[m
+               type="button"[m
+               onClick={() => onSelect(t.tool)}[m
+               className={cn([m
+[31m-                "w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-secondary text-left",[m
+[31m-                activeTool === t.tool && "bg-secondary text-primary",[m
+[32m+[m[32m                "w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors hover:bg-secondary",[m
+[32m+[m[32m                activeTool === t.tool && "bg-primary/15 text-primary",[m
+               )}[m
+             >[m
+               <t.icon className="h-3.5 w-3.5 shrink-0" />[m
+[36m@@ -203,12 +203,12 @@[m [mexport function DrawingToolRail({[m
+     <div[m
+       ref={ref}[m
+       style={drag.style}[m
+[31m-      className="absolute left-1 top-1 z-20 flex flex-col items-center gap-0.5 rounded-md bg-card/90 border border-border p-0.5 backdrop-blur-sm"[m
+[32m+[m[32m      className="absolute left-1 top-1 z-20 flex flex-col items-center gap-1 rounded-lg border border-border/80 bg-card/92 p-1 shadow-lg backdrop-blur-md"[m
+     >[m
+       <div[m
+         onPointerDown={drag.onPointerDown}[m
+         title="Drag to move"[m
+[31m-        className="flex w-full cursor-move justify-center py-0.5 text-muted-foreground/50 hover:text-muted-foreground"[m
+[32m+[m[32m        className="flex w-full cursor-move justify-center rounded-md py-1 text-muted-foreground/45 transition-colors hover:bg-secondary hover:text-muted-foreground"[m
+       >[m
+         <GripVertical className="h-3.5 w-3.5" />[m
+       </div>[m

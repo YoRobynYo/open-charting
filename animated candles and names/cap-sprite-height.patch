@@ -1,0 +1,58 @@
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index 05fab81..f5ebadf 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -61,6 +61,12 @@ export interface CharacterCandlesOptions {
+   minHeightPx: number;
+   /** Sprite never gets wider than this. */
+   maxWidthPx: number;
++  /**
++   * Tallest a character may be, as a multiple of its width. On bigger candles
++   * the character stays this tall and is centred on the body instead of being
++   * stretched into a thin pill.
++   */
++  maxAspect: number;
+   /** Do not draw sprites when bars are thinner than this (zoomed far out). */
+   minBarSpacingPx: number;
+   /** Fractions of the image kept as fixed head and feet. Middle stretches. */
+@@ -83,6 +89,7 @@ const DEFAULTS: CharacterCandlesOptions = {
+   widthRatio: 0.9,
+   minHeightPx: 18,
+   maxWidthPx: 64,
++  maxAspect: 3,
+   minBarSpacingPx: 8,
+   headSlice: 0.28,
+   feetSlice: 0.2,
+@@ -152,12 +159,13 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+         const top = Math.min(yOpen, yClose);
+         const bodyH = Math.max(Math.abs(yClose - yOpen), options.minHeightPx);
+         const baseW = Math.min(barSpacing * options.widthRatio, options.maxWidthPx);
++        const spriteH = Math.min(bodyH, Math.max(options.minHeightPx, baseW * options.maxAspect));
+ 
+         const anim = animating && n >= firstAnimated ? CHARACTER_ANIMATIONS[name] : undefined;
+         const m = anim?.motion(t, i);
+         const w = baseW * (m?.scaleW ?? 1);
+         const left = x - w / 2;
+-        const y = top + (m ? m.dy * baseW : 0);
++        const y = top + (bodyH - spriteH) / 2 + (m ? m.dy * baseW : 0);
+ 
+         ctx.save();
+         if (m?.glow && m.glowAmount) {
+@@ -165,7 +173,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           ctx.shadowBlur = 14 * m.glowAmount * hpr;
+         }
+         ctx.globalAlpha = m?.alpha ?? 1;
+-        drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, bodyH * vpr, options.headSlice, options.feetSlice);
++        drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, spriteH * vpr, options.headSlice, options.feetSlice);
+         ctx.restore();
+ 
+         const e = anim?.emitter;
+@@ -173,7 +181,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           ctx.save();
+           ctx.fillStyle = e.color;
+           for (let k = 0; k < e.count; k++) {
+-            const p = particleAt(e, k, i, t, left, y, w, bodyH);
++            const p = particleAt(e, k, i, t, left, y, w, spriteH);
+             ctx.globalAlpha = Math.max(0, p.alpha);
+             ctx.beginPath();
+             ctx.arc(p.x * hpr, p.y * vpr, Math.max(0.6, p.radius) * hpr, 0, Math.PI * 2);
