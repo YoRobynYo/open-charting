@@ -24,10 +24,12 @@ Keep this as the current ICT work order. Update status only after implementation
 ### ICT 6 — Candle characters, names, and BOS/CHoCH (first; most used)
 
 - [ ] Keep BOS/CHoCH visible together with the candle characters and pattern names.
-- [ ] Keep each Retest/Hold/Trade step visually attached directly beneath its candle name, with a small gap; do not move the steps elsewhere.
-- [ ] Keep ICT 2's separate Sweep/Break/Hold/Trade action-word feature off in ICT 6; do not blend indicators.
+- [x] Keep each Retest/Hold/Trade step visually attached directly beneath its candle name, with a small gap; do not move the steps elsewhere.
+- [x] Keep ICT 2's separate Sweep/Break/Hold/Trade action-word feature off in ICT 6; do not blend indicators.
 - [ ] Check candle-name visibility (including Hammer and Hanging Man), BOS/CHoCH lines, step-label placement, and zoom behavior in the chart. Record any remaining limitations before marking complete.
 - [ ] Keep in mind that pattern names are currently primarily shape-based and are not necessarily validated against prior trend or location; decide any context-sensitive naming separately before changing the rules.
+
+**Implementation update:** ICT 6 BOS/CHoCH, attached Retest/Hold/Trade labels, sprite-only zoom suppression, and cross-tag collision avoidance are implemented on this branch. The label spacing, zoom visibility policy, and tag placement have regression tests. Typecheck, lint, full tests (292 passed, 2 skipped, plus 12 server tests), and production build pass. Actual chart appearance checks are still open; do not mark the ICT 6 review complete until those are done.
 
 ### ICT 2 — Sweep → break → retest → hold → trade (after ICT 6)
 
