@@ -54,10 +54,10 @@ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
 };
 
 /** Colour of a Retest, Hold or Trade word under a candle. */
-function stepColor(word: StepWord): string {
+export function structureStepColor(word: StepWord): string {
   if (word.kind === "retest") return "#38bdf8";
   if (word.kind === "hold") return "#fbbf24";
-  return word.direction === "bullish" ? "#22c55e" : "#f43f5e";
+  return word.direction === "bullish" ? "#f43f5e" : "#22c55e";
 }
 
 /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
@@ -303,7 +303,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
             yLow,
             text,
             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
-            steps: stepWords?.map((w) => ({ text: w.text, color: stepColor(w) })),
+            steps: stepWords?.map((w) => ({ text: w.text, color: structureStepColor(w) })),
             alpha: lost ? 0.45 : 1,
           });
         }
@@ -323,8 +323,8 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
               yHigh,
               yLow,
               text: "",
-              color: stepColor(words[0]!),
-              steps: words.map((w) => ({ text: w.text, color: stepColor(w) })),
+              color: structureStepColor(words[0]!),
+              steps: words.map((w) => ({ text: w.text, color: structureStepColor(w) })),
             });
           }
         }

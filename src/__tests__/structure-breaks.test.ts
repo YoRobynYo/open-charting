@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import type { IctCandle } from "../lib/chart-plugins/ict-analysis/ict-analysis.ts";
 import { detectStructureBreaks, stepWordsByTime, type StructureBreak } from "../lib/chart-plugins/character-candles/structure-breaks.ts";
-import { drawLabels, drawStructureBreaks, resolveIct6Visibility } from "../lib/chart-plugins/character-candles/character-candles.ts";
+import { drawLabels, drawStructureBreaks, resolveIct6Visibility, structureStepColor } from "../lib/chart-plugins/character-candles/character-candles.ts";
 
 describe("ICT 6 zoom visibility", () => {
   it("hides tiny sprites while keeping names and BOS/CHoCH visible", () => {
     expect(resolveIct6Visibility(5, { minBarSpacingPx: 8, showLabels: true, showStructure: true }))
       .toEqual({ characters: false, labels: true, structure: true });
+  });
+});
+
+describe("ICT 6 trade-step colors", () => {
+  it("uses red for bullish Trade and green for bearish Trade, without changing Retest/Hold colors", () => {
+    expect(structureStepColor({ kind: "trade", direction: "bullish", text: "Trade ▲" })).toBe("#f43f5e");
+    expect(structureStepColor({ kind: "trade", direction: "bearish", text: "Trade ▼" })).toBe("#22c55e");
+    expect(structureStepColor({ kind: "retest", direction: "bullish", text: "Retest" })).toBe("#38bdf8");
+    expect(structureStepColor({ kind: "hold", direction: "bearish", text: "Hold" })).toBe("#fbbf24");
   });
 });
 

@@ -29,7 +29,7 @@ Keep this as the current ICT work order. Update status only after implementation
 - [ ] Check candle-name visibility (including Hammer and Hanging Man), BOS/CHoCH lines, step-label placement, and zoom behavior in the chart. Record any remaining limitations before marking complete.
 - [ ] Keep in mind that pattern names are currently primarily shape-based and are not necessarily validated against prior trend or location; decide any context-sensitive naming separately before changing the rules.
 
-**Implementation update:** ICT 6 BOS/CHoCH, attached Retest/Hold/Trade labels, sprite-only zoom suppression, and cross-tag collision avoidance are implemented on this branch. The label spacing, zoom visibility policy, and tag placement have regression tests. Typecheck, lint, full tests (292 passed, 2 skipped, plus 12 server tests), and production build pass. Actual chart appearance checks are still open; do not mark the ICT 6 review complete until those are done.
+**Implementation update:** ICT 6 BOS/CHoCH, attached Retest/Hold/Trade labels, sprite-only zoom suppression, and cross-tag collision avoidance are implemented on this branch. Trade is red for bullish and green for bearish; Retest and Hold retain their existing colors. The label spacing, zoom visibility policy, and tag placement have regression tests. Typecheck, lint, full tests (292 passed, 2 skipped, plus 12 server tests), and production build pass. Actual chart appearance checks are still open; do not mark the ICT 6 review complete until those are done.
 
 ### ICT 2 — Sweep → break → retest → hold → trade (after ICT 6)
 
