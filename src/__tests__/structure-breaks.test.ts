@@ -11,9 +11,9 @@ describe("ICT 6 zoom visibility", () => {
 });
 
 describe("ICT 6 trade-step colors", () => {
-  it("uses red for bullish Trade and green for bearish Trade, without changing Retest/Hold colors", () => {
-    expect(structureStepColor({ kind: "trade", direction: "bullish", text: "Trade ▲" })).toBe("#f43f5e");
-    expect(structureStepColor({ kind: "trade", direction: "bearish", text: "Trade ▼" })).toBe("#22c55e");
+  it("uses green for bullish Trade and red for bearish Trade, without changing Retest/Hold colors", () => {
+    expect(structureStepColor({ kind: "trade", direction: "bullish", text: "Trade ▲" })).toBe("#22c55e");
+    expect(structureStepColor({ kind: "trade", direction: "bearish", text: "Trade ▼" })).toBe("#f43f5e");
     expect(structureStepColor({ kind: "retest", direction: "bullish", text: "Retest" })).toBe("#38bdf8");
     expect(structureStepColor({ kind: "hold", direction: "bearish", text: "Hold" })).toBe("#fbbf24");
   });

@@ -57,7 +57,7 @@ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
 export function structureStepColor(word: StepWord): string {
   if (word.kind === "retest") return "#38bdf8";
   if (word.kind === "hold") return "#fbbf24";
-  return word.direction === "bullish" ? "#f43f5e" : "#22c55e";
+  return word.direction === "bullish" ? "#22c55e" : "#f43f5e";
 }
 
 /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
