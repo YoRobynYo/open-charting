@@ -1,0 +1,650 @@
+diff --git a/src/__tests__/structure-breaks.test.ts b/src/__tests__/structure-breaks.test.ts
+index 783a822..2ccf4b4 100644
+--- a/src/__tests__/structure-breaks.test.ts
++++ b/src/__tests__/structure-breaks.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, expect, it } from "vitest";
+ import type { IctCandle } from "../lib/chart-plugins/ict-analysis/ict-analysis.ts";
+-import { detectStructureBreaks, type StructureBreak } from "../lib/chart-plugins/character-candles/structure-breaks.ts";
+-import { drawStructureBreaks } from "../lib/chart-plugins/character-candles/character-candles.ts";
++import { detectStructureBreaks, stepWordsByTime, type StructureBreak } from "../lib/chart-plugins/character-candles/structure-breaks.ts";
++import { drawLabels, drawStructureBreaks } from "../lib/chart-plugins/character-candles/character-candles.ts";
+ 
+ /** Straight-line waves between turning points, one candle per step, one second apart. */
+ function waveCandles(turningPoints: Array<[number, number]>, length: number, step = 1): IctCandle[] {
+@@ -73,9 +73,12 @@ describe("detectStructureBreaks", () => {
+   });
+ });
+ 
+-describe("retest and hold", () => {
++describe("retest, hold and trade", () => {
+   const candle = (time: number, open: number, high: number, low: number, close: number): IctCandle =>
+     ({ time, open, high, low, close });
++  const away = (time: number) => candle(time, 126, 128, 125, 127);
++  const retest = (time: number) => candle(time, 127, 127, 120, 123);
++  const holding = (time: number) => candle(time, 123, 125, 122, 124);
+   /** Everything up to and including the bullish BOS at time 18, then the given candles and one still forming. */
+   const bullishAfterBreak = (tail: IctCandle[]) => [
+     ...waveCandles(WAVE, 31).slice(0, 18),
+@@ -92,52 +95,107 @@ describe("retest and hold", () => {
+   const bosAt18 = (candles: IctCandle[], direction: "bullish" | "bearish") =>
+     detectStructureBreaks(candles, { strength: 3 }).find((b) => b.time === 18 && b.direction === direction);
+ 
+-  it("finds the candle that came back to the level and closed above it", () => {
+-    const b = bosAt18(bullishAfterBreak([
+-      candle(19, 126, 128, 125, 127),
+-      candle(20, 127, 127, 120, 123),
+-    ]), "bullish");
++  it("walks through retest, hold and trade on consecutive candles", () => {
++    const b = bosAt18(bullishAfterBreak([away(19), retest(20), holding(21), away(22)]), "bullish");
+ 
+     expect(b?.price).toBe(121);
+-    expect(b?.retest).toEqual({ time: 20, extreme: 120 });
++    expect(b?.retest).toEqual({ time: 20 });
++    expect(b?.hold).toEqual({ time: 21 });
++    expect(b?.trade).toEqual({ time: 22 });
+   });
+ 
+-  it("has no hold while price stays away from the level", () => {
+-    const b = bosAt18(bullishAfterBreak([
+-      candle(19, 126, 128, 125, 127),
+-      candle(20, 127, 130, 126, 129),
+-    ]), "bullish");
++  it("has nothing while price stays away from the level", () => {
++    const b = bosAt18(bullishAfterBreak([away(19), away(20)]), "bullish");
+ 
+     expect(b).toBeDefined();
+     expect(b?.retest).toBeUndefined();
++    expect(b?.hold).toBeUndefined();
++    expect(b?.trade).toBeUndefined();
+   });
+ 
+   it("does not count a touch that closes back through the level", () => {
+-    const b = bosAt18(bullishAfterBreak([
+-      candle(19, 126, 128, 125, 127),
+-      candle(20, 127, 127, 118, 119),
+-    ]), "bullish");
++    const b = bosAt18(bullishAfterBreak([away(19), candle(20, 127, 127, 118, 119)]), "bullish");
+ 
+     expect(b?.retest).toBeUndefined();
+   });
+ 
+-  it("only looks eight candles past the break", () => {
+-    const away = (time: number) => candle(time, 126, 128, 125, 127);
+-    const touch = (time: number) => candle(time, 127, 127, 120, 123);
+-    const eight = Array.from({ length: 7 }, (_, i) => away(19 + i));
++  it("waits for the next candle before calling it a hold", () => {
++    const b = bosAt18(bullishAfterBreak([away(19), retest(20)]), "bullish");
+ 
+-    expect(bosAt18(bullishAfterBreak([...eight, touch(26)]), "bullish")?.retest?.time).toBe(26);
+-    expect(bosAt18(bullishAfterBreak([...eight, away(26), touch(27)]), "bullish")?.retest).toBeUndefined();
++    expect(b?.retest).toEqual({ time: 20 });
++    expect(b?.hold).toBeUndefined();
++    expect(b?.trade).toBeUndefined();
+   });
+ 
+-  it("holds a bearish break from below, with the candle high as the extreme", () => {
+-    const b = bosAt18(mirror(bullishAfterBreak([
+-      candle(19, 126, 128, 125, 127),
+-      candle(20, 127, 127, 120, 123),
+-    ])), "bearish");
++  it("drops the hold and the trade when the next candle closes through the level", () => {
++    const b = bosAt18(bullishAfterBreak([away(19), retest(20), candle(21, 123, 123, 117, 118), away(22)]), "bullish");
++
++    expect(b?.retest).toEqual({ time: 20 });
++    expect(b?.hold).toBeUndefined();
++    expect(b?.trade).toBeUndefined();
++  });
++
++  it("puts the trade on the candle that is still forming", () => {
++    const b = bosAt18(bullishAfterBreak([away(19), retest(20), holding(21)]), "bullish");
++
++    expect(b?.hold).toEqual({ time: 21 });
++    expect(b?.trade).toEqual({ time: 22 });
++  });
++
++  it("only looks eight candles past the break for the retest", () => {
++    const seven = Array.from({ length: 7 }, (_, i) => away(19 + i));
++
++    expect(bosAt18(bullishAfterBreak([...seven, retest(26), holding(27)]), "bullish")?.retest?.time).toBe(26);
++    expect(bosAt18(bullishAfterBreak([...seven, away(26), retest(27), holding(28)]), "bullish")?.retest).toBeUndefined();
++  });
++
++  it("works the same way down for a bearish break", () => {
++    const b = bosAt18(mirror(bullishAfterBreak([away(19), retest(20), holding(21), away(22)])), "bearish");
+ 
+     expect(b?.price).toBe(79);
+-    expect(b?.retest).toEqual({ time: 20, extreme: 80 });
++    expect(b?.retest).toEqual({ time: 20 });
++    expect(b?.hold).toEqual({ time: 21 });
++    expect(b?.trade).toEqual({ time: 22 });
++  });
++});
++
++describe("stepWordsByTime", () => {
++  const base: StructureBreak = { kind: "BOS", direction: "bullish", time: 10, startTime: 5, price: 100 };
++
++  it("lists each step under its own candle, with an arrow on the trade", () => {
++    const words = stepWordsByTime([{ ...base, retest: { time: 11 }, hold: { time: 12 }, trade: { time: 13 } }]);
++
++    expect(words.get(11)?.map((w) => w.text)).toEqual(["Retest"]);
++    expect(words.get(12)?.map((w) => w.text)).toEqual(["Hold"]);
++    expect(words.get(13)?.map((w) => w.text)).toEqual(["Trade \u25B2"]);
++  });
++
++  it("points the trade down for a bearish break", () => {
++    const words = stepWordsByTime([{ ...base, direction: "bearish", trade: { time: 13 } }]);
++
++    expect(words.get(13)?.[0]?.text).toBe("Trade \u25BC");
++  });
++
++  it("stacks steps that land on the same candle in the order they happen", () => {
++    const words = stepWordsByTime([
++      { ...base, hold: { time: 12 } },
++      { ...base, time: 8, retest: { time: 12 } },
++    ]);
++
++    expect(words.get(12)?.map((w) => w.kind).sort()).toEqual(["hold", "retest"]);
++  });
++
++  it("does not repeat a word on one candle", () => {
++    const words = stepWordsByTime([
++      { ...base, retest: { time: 11 } },
++      { ...base, time: 9, retest: { time: 11 } },
++    ]);
++
++    expect(words.get(11)).toHaveLength(1);
++  });
++
++  it("returns nothing when no break has a step", () => {
++    expect(stepWordsByTime([base]).size).toBe(0);
+   });
+ });
+ 
+@@ -219,46 +277,82 @@ describe("drawStructureBreaks", () => {
+     expect(calls).toEqual([]);
+   });
+ 
+-  const hold = (b: StructureBreak, time = 30, extreme = b.direction === "bullish" ? b.price - 2 : b.price + 2): StructureBreak =>
+-    ({ ...b, retest: { time, extreme } });
+-  const texts = (calls: string[]) =>
+-    calls.filter((c) => c.startsWith("fillText:")).map((c) => JSON.parse(c.slice(9))[0]);
+-  const rects = (calls: string[]) =>
+-    calls.filter((c) => c.startsWith("fillRect:")).map((c) => JSON.parse(c.slice(9)) as number[]);
++  const withRetest = (b: StructureBreak, time = 30): StructureBreak => ({ ...b, retest: { time } });
++
++  it("rings the retest candle and carries the level on to it", () => {
++    const plain = recorder();
++    drawStructureBreaks(plain.ctx, [bos], view());
++    const rung = recorder();
++    drawStructureBreaks(rung.ctx, [withRetest(bos)], view());
+ 
+-  it("adds a ring and a HOLD arrow when the level held", () => {
++    const count = (calls: string[], name: string) => calls.filter((c) => c.startsWith(`${name}:`)).length;
++    expect(count(rung.calls, "arc")).toBe(count(plain.calls, "arc") + 1);
++    expect(count(rung.calls, "stroke")).toBe(count(plain.calls, "stroke") + 2);
++  });
++
++  it("leaves the words to the candle tags", () => {
+     const { ctx, calls } = recorder();
+-    drawStructureBreaks(ctx, [hold(bos)], view());
++    drawStructureBreaks(ctx, [{ ...withRetest(bos), hold: { time: 40 }, trade: { time: 50 } }], view());
+ 
+-    expect(texts(calls)).toEqual(["HOLD \u25B2", "BOS"]);
+-    expect(calls.filter((c) => c.startsWith("arc:"))).toHaveLength(3);
++    expect(calls.filter((c) => c.startsWith("fillText:")).map((c) => JSON.parse(c.slice(9))[0])).toEqual(["BOS"]);
+   });
+ 
+-  it("points down for a bearish hold", () => {
++  it("skips the ring when the retest candle has no position", () => {
++    const plain = recorder();
++    drawStructureBreaks(plain.ctx, [bos], view());
+     const { ctx, calls } = recorder();
+-    drawStructureBreaks(ctx, [hold(choch)], view());
++    drawStructureBreaks(ctx, [withRetest(bos, 999)], view());
+ 
+-    expect(texts(calls)).toContain("HOLD \u25BC");
++    expect(calls).toEqual(plain.calls);
+   });
++});
+ 
+-  it("puts a bullish HOLD below the wick and a bearish HOLD above it", () => {
+-    const up = recorder();
+-    drawStructureBreaks(up.ctx, [hold(bos)], view());
+-    const [upTag] = rects(up.calls);
+-    // Level 120 is y 380 and the wick reaches 118, which is y 382.
+-    expect(upTag![1]).toBeGreaterThanOrEqual(382);
+-
+-    const down = recorder();
+-    drawStructureBreaks(down.ctx, [hold(choch)], view());
+-    const [downTag] = rects(down.calls);
+-    // Level 90 is y 410 and the wick reaches 92, which is y 408.
+-    expect(downTag![1]! + downTag![3]!).toBeLessThanOrEqual(408);
++describe("candle tags with steps", () => {
++  function recordText(labels: Parameters<typeof drawLabels>[1]) {
++    const texts: string[] = [];
++    const ctx = new Proxy({} as Record<string, unknown>, {
++      get(_t, key: string) {
++        if (key === "measureText") return () => ({ width: 30 });
++        if (key === "fillText") return (text: string) => { texts.push(text); };
++        return () => undefined;
++      },
++      set: () => true,
++    }) as unknown as CanvasRenderingContext2D;
++    drawLabels(ctx, labels, { hpr: 1, vpr: 1, width: 800, height: 600, fontPx: 11, leadPx: 10 });
++    return texts;
++  }
++  const spot = { x: 400, yHigh: 300, yLow: 320, color: "#fff" };
++
++  it("lists the steps under the pattern name", () => {
++    const texts = recordText([{
++      ...spot,
++      text: "Engulfing",
++      steps: [{ text: "Retest", color: "#38bdf8" }, { text: "Hold", color: "#fbbf24" }],
++    }]);
++
++    expect(texts).toEqual(["Engulfing", "Retest", "Hold"]);
+   });
+ 
+-  it("leaves the HOLD out when the retest candle has no position", () => {
+-    const { ctx, calls } = recorder();
+-    drawStructureBreaks(ctx, [hold(bos, 999)], view());
++  it("puts the Sweep word between the name and the steps", () => {
++    const texts = recordText([{
++      ...spot,
++      text: "Hammer",
++      action: "Sweep",
++      steps: [{ text: "Trade \u25B2", color: "#22c55e" }],
++    }]);
++
++    expect(texts).toEqual(["Hammer", "Sweep", "Trade \u25B2"]);
++  });
++
++  it("makes a small tag from the steps alone when the candle has no name", () => {
++    const texts = recordText([{ ...spot, text: "", steps: [{ text: "Hold", color: "#fbbf24" }] }]);
++
++    expect(texts).toEqual(["Hold"]);
++  });
++
++  it("wraps a two-word name one word per line above its steps", () => {
++    const texts = recordText([{ ...spot, text: "Shooting Star", steps: [{ text: "Hold", color: "#fbbf24" }] }]);
+ 
+-    expect(texts(calls)).toEqual(["BOS"]);
++    expect(texts).toEqual(["Shooting", "Star", "Hold"]);
+   });
+ });
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index b12a313..888fc74 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -22,6 +22,8 @@ import {
+   DEFAULT_STRUCTURE_LOOKBACK_SECONDS,
+   DEFAULT_STRUCTURE_STRENGTH,
+   detectStructureBreaks,
++  stepWordsByTime,
++  type StepWord,
+   type StructureBreak,
+ } from "./structure-breaks";
+ 
+@@ -60,6 +62,13 @@ const ACTION_COLOR: Record<CandleAction, string> = {
+   Hold: "#fbbf24",
+ };
+ 
++/** Colour of a Retest, Hold or Trade word under a candle. */
++function stepColor(word: StepWord): string {
++  if (word.kind === "retest") return "#38bdf8";
++  if (word.kind === "hold") return "#fbbf24";
++  return word.direction === "bullish" ? "#22c55e" : "#f43f5e";
++}
++
+ /** Which way each pattern points, used to decide if the next candles confirm or fail it. */
+ export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
+   hammer: "bullish",
+@@ -280,6 +289,7 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+ 
+       if (options.showLabels) {
+         const labels: LabelInput[] = [];
++        const stepTimes = new Set<number>();
+         for (const { i, pattern, stage } of items) {
+           const lost = stage === "failed" || stage === "expired";
+           if (lost && !options.labelFailed) continue;
+@@ -287,9 +297,13 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           const text = PATTERN_LABEL[pattern];
+           if (!bar || !text) continue;
+           const bias = PATTERN_BIAS[pattern];
+-          const action = options.actionWords && bias
++          // With BOS / CHoCH on, the Hold word comes from the line it belongs to.
++          const setupAction = options.actionWords && bias
+             ? actionForCandle(this.source.setups, candles[i]!.time, bias, barSeconds)
+             : undefined;
++          const action = setupAction === "Hold" && options.showStructure ? undefined : setupAction;
++          const stepWords = options.showStructure ? this.source.steps.get(candles[i]!.time) : undefined;
++          if (stepWords) stepTimes.add(candles[i]!.time);
+           const x = chart.timeScale().logicalToCoordinate(i as never);
+           const yHigh = series.priceToCoordinate(bar.high);
+           const yLow = series.priceToCoordinate(bar.low);
+@@ -301,9 +315,31 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+             text,
+             color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
+             action,
++            steps: stepWords?.map((w) => ({ text: w.text, color: stepColor(w) })),
+             alpha: lost ? 0.45 : 1,
+           });
+         }
++        // Candles with no pattern name still get a small tag for their step.
++        if (options.showStructure) {
++          for (let i = from; i <= to; i++) {
++            const time = candles[i]!.time;
++            const words = this.source.steps.get(time);
++            const bar = data[i];
++            if (!words || !bar || stepTimes.has(time)) continue;
++            const x = chart.timeScale().logicalToCoordinate(i as never);
++            const yHigh = series.priceToCoordinate(bar.high);
++            const yLow = series.priceToCoordinate(bar.low);
++            if (x === null || yHigh === null || yLow === null) continue;
++            labels.push({
++              x,
++              yHigh,
++              yLow,
++              text: "",
++              color: stepColor(words[0]!),
++              steps: words.map((w) => ({ text: w.text, color: stepColor(w) })),
++            });
++          }
++        }
+         drawLabels(ctx, labels, {
+           hpr,
+           vpr,
+@@ -368,21 +404,21 @@ export function drawStructureBreaks(
+     }
+ 
+     if (b.retest) {
++      // Carry the level on to the candle that came back to it and ring that candle.
+       const xr = chart.timeScale().timeToCoordinate(b.retest.time as Time);
+-      const yExtreme = series.priceToCoordinate(b.retest.extreme);
+-      if (xr !== null && yExtreme !== null) {
+-        drawHold(ctx, {
+-          x1: x2 * hpr,
+-          xr: xr * hpr,
+-          y: yPx,
+-          yExtreme: yExtreme * vpr,
+-          direction: b.direction,
+-          color,
+-          width: v.width,
+-          hpr,
+-          vpr,
+-          tagH,
+-        });
++      if (xr !== null) {
++        ctx.save();
++        ctx.globalAlpha = 0.55;
++        ctx.beginPath();
++        ctx.moveTo(x2 * hpr, yPx);
++        ctx.lineTo(xr * hpr, yPx);
++        ctx.stroke();
++        ctx.restore();
++        ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
++        ctx.beginPath();
++        ctx.arc(xr * hpr, yPx, 3.5 * hpr, 0, Math.PI * 2);
++        ctx.fill();
++        ctx.stroke();
+       }
+     }
+ 
+@@ -399,60 +435,6 @@ export function drawStructureBreaks(
+   ctx.restore();
+ }
+ 
+-/**
+- * The retest and the hold: a thin line carries on from the break back to the
+- * candle that touched the level, a ring marks that candle, and a HOLD tag with
+- * an arrow sits just past the wick on the far side of the level (below for a
+- * bullish hold, above for a bearish one) so it never covers the candle.
+- */
+-function drawHold(
+-  ctx: CanvasRenderingContext2D,
+-  h: {
+-    x1: number;
+-    xr: number;
+-    y: number;
+-    yExtreme: number;
+-    direction: "bullish" | "bearish";
+-    color: string;
+-    width: number;
+-    hpr: number;
+-    vpr: number;
+-    tagH: number;
+-  },
+-) {
+-  const { hpr, vpr, color } = h;
+-  const bullish = h.direction === "bullish";
+-
+-  ctx.save();
+-  ctx.globalAlpha = 0.55;
+-  ctx.strokeStyle = color;
+-  ctx.beginPath();
+-  ctx.moveTo(h.x1, h.y);
+-  ctx.lineTo(h.xr, h.y);
+-  ctx.stroke();
+-  ctx.restore();
+-
+-  ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
+-  ctx.strokeStyle = color;
+-  ctx.beginPath();
+-  ctx.arc(h.xr, h.y, 3.5 * hpr, 0, Math.PI * 2);
+-  ctx.fill();
+-  ctx.stroke();
+-
+-  const text = bullish ? "HOLD \u25B2" : "HOLD \u25BC";
+-  const tagW = ctx.measureText(text).width + 10 * hpr;
+-  const cx = Math.min(Math.max(h.xr, tagW / 2), h.width - tagW / 2);
+-  const gap = 5 * vpr;
+-  const cy = bullish
+-    ? Math.max(h.yExtreme, h.y) + gap + h.tagH / 2
+-    : Math.min(h.yExtreme, h.y) - gap - h.tagH / 2;
+-  ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+-  ctx.fillRect(cx - tagW / 2, cy - h.tagH / 2, tagW, h.tagH);
+-  ctx.strokeRect(cx - tagW / 2, cy - h.tagH / 2, tagW, h.tagH);
+-  ctx.fillStyle = color;
+-  ctx.fillText(text, cx, cy);
+-}
+-
+ interface LabelInput {
+   x: number;
+   yHigh: number;
+@@ -461,6 +443,8 @@ interface LabelInput {
+   color: string;
+   /** Sweep, Break or Hold, shown as a last line under the name. */
+   action?: CandleAction;
++  /** Retest, Hold and Trade words from a BOS / CHoCH, shown under the name. */
++  steps?: Array<{ text: string; color: string }>;
+   alpha?: number;
+ }
+ 
+@@ -469,7 +453,7 @@ interface LabelInput {
+  * the real pattern name. Tags sit above the candle, stack upward when a
+  * neighbour would overlap, and flip below the candle if there is no room above.
+  */
+-function drawLabels(
++export function drawLabels(
+   ctx: CanvasRenderingContext2D,
+   labels: LabelInput[],
+   v: { hpr: number; vpr: number; width: number; height: number; fontPx: number; leadPx: number },
+@@ -495,8 +479,10 @@ function drawLabels(
+     // Multi-word names wrap one word per line; an action word goes last.
+     const lines: Array<{ text: string; color: string }> = l.text
+       .split(" ")
++      .filter(Boolean)
+       .map((w) => ({ text: w, color: "#f3f4f6" }));
+     if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
++    lines.push(...(l.steps ?? []));
+     const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
+     const boxW = textW + padX * 2;
+     const boxH = lineH * lines.length + padY * 2;
+@@ -619,6 +605,8 @@ export class CharacterCandles extends PluginBase {
+   public setups: TradeSetup[] = [];
+   /** BOS and CHoCH drawn on the chart. */
+   public structure: StructureBreak[] = [];
++  /** The Retest, Hold and Trade words of those breaks, by candle time. */
++  public steps = new Map<number, StepWord[]>();
+   private _setupKey = "";
+ 
+   constructor(options: Partial<CharacterCandlesOptions> = {}) {
+@@ -673,6 +661,7 @@ export class CharacterCandles extends PluginBase {
+         lookbackSeconds: this._options.structureDays * 86400,
+       })
+       : [];
++    this.steps = stepWordsByTime(this.structure);
+   }
+ 
+   protected dataUpdated() {
+diff --git a/src/lib/chart-plugins/character-candles/structure-breaks.ts b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+index 992bbbe..89964cb 100644
+--- a/src/lib/chart-plugins/character-candles/structure-breaks.ts
++++ b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+@@ -4,11 +4,9 @@ import {
+   type IctCandle,
+ } from "../ict-analysis/ict-analysis.ts";
+ 
+-/** The candle that came back to a broken level and held it. */
+-export interface StructureRetest {
++/** A candle that is one step of a break: the retest, the hold or the trade. */
++export interface StructureStep {
+   time: number;
+-  /** Where the candle reached into the level: its low for a bullish break, its high for a bearish one. */
+-  extreme: number;
+ }
+ 
+ /** One break of structure, ready to draw: a level, the swing it came from and the candle that closed through it. */
+@@ -21,8 +19,12 @@ export interface StructureBreak {
+   /** The swing candle the level came from. */
+   startTime: number;
+   price: number;
+-  /** Set when price came back to the level and held it. Absent while there is no hold. */
+-  retest?: StructureRetest;
++  /** The candle that came back to the level and closed on the right side of it. */
++  retest?: StructureStep;
++  /** The next candle, when it closed on the right side of the level too. */
++  hold?: StructureStep;
++  /** The candle after the hold, where the trade would be taken on its open. */
++  trade?: StructureStep;
+ }
+ 
+ export interface StructureBreakOptions {
+@@ -39,25 +41,50 @@ export const DEFAULT_STRUCTURE_LOOKBACK_SECONDS = 30 * 24 * 60 * 60;
+ /** Same window the ICT Structure 4 trade setup uses for its retest. */
+ export const DEFAULT_STRUCTURE_RETEST_BARS = 8;
+ 
++const rightSide = (candle: IctCandle, direction: StructureBreak["direction"], price: number) =>
++  direction === "bullish" ? candle.close >= price : candle.close <= price;
++
++const touches = (candle: IctCandle, direction: StructureBreak["direction"], price: number) =>
++  direction === "bullish" ? candle.low <= price : candle.high >= price;
++
+ /**
+- * The first candle after the break that reaches back to the level and closes
+- * on the right side of it: a bullish break holds when a low touches the level
+- * and the candle still closes above it, a bearish break the other way round.
++ * What happens after a break, one candle each:
++ * - retest: the first candle within `maxBars` that reaches back to the level
++ *   and still closes on the right side of it (a bullish break needs a low at or
++ *   below the level and a close at or above it, a bearish break the reverse);
++ * - hold: the very next candle, if it closes on the right side as well;
++ * - trade: the candle after that, which may still be forming.
++ * Only closed candles can retest or hold, so those words never flicker.
+  */
+-function findHold(
+-  closed: readonly IctCandle[],
++function findSteps(
++  candles: readonly IctCandle[],
+   breakIndex: number,
+   direction: StructureBreak["direction"],
+   price: number,
+   maxBars: number,
+-): StructureRetest | undefined {
+-  const hit = closed
+-    .slice(breakIndex + 1, breakIndex + 1 + maxBars)
+-    .find((candle) => direction === "bullish"
+-      ? candle.low <= price && candle.close >= price
+-      : candle.high >= price && candle.close <= price);
+-  if (!hit) return undefined;
+-  return { time: hit.time, extreme: direction === "bullish" ? hit.low : hit.high };
++): Pick<StructureBreak, "retest" | "hold" | "trade"> {
++  const closedCount = candles.length - 1;
++  const end = Math.min(closedCount, breakIndex + 1 + maxBars);
++  let retestIndex = -1;
++  for (let i = breakIndex + 1; i < end; i += 1) {
++    const candle = candles[i]!;
++    if (touches(candle, direction, price) && rightSide(candle, direction, price)) {
++      retestIndex = i;
++      break;
++    }
++  }
++  if (retestIndex < 0) return {};
++
++  const steps: Pick<StructureBreak, "retest" | "hold" | "trade"> = {
++    retest: { time: candles[retestIndex]!.time },
++  };
++  const holdIndex = retestIndex + 1;
++  if (holdIndex < closedCount && rightSide(candles[holdIndex]!, direction, price)) {
++    steps.hold = { time: candles[holdIndex]!.time };
++    const tradeIndex = holdIndex + 1;
++    if (tradeIndex < candles.length) steps.trade = { time: candles[tradeIndex]!.time };
++  }
++  return steps;
+ }
+ 
+ /**
+@@ -85,16 +112,48 @@ export function detectStructureBreaks(
+     if ((event.kind !== "bos" && event.kind !== "choch") ||
+         event.price === undefined || event.startTime === undefined) return [];
+     const breakIndex = indexByTime.get(event.time);
+-    const retest = breakIndex === undefined
+-      ? undefined
+-      : findHold(closed, breakIndex, event.direction, event.price, retestBars);
++    const steps = breakIndex === undefined
++      ? {}
++      : findSteps(candles, breakIndex, event.direction, event.price, retestBars);
+     return [{
+       kind: event.kind === "bos" ? "BOS" : "CHoCH",
+       direction: event.direction,
+       time: event.time,
+       startTime: event.startTime,
+       price: event.price,
+-      ...(retest ? { retest } : {}),
++      ...steps,
+     }];
+   });
+ }
++
++/** One word to show under a candle: Retest, Hold, or Trade with an arrow. */
++export interface StepWord {
++  kind: "retest" | "hold" | "trade";
++  text: string;
++  direction: StructureBreak["direction"];
++}
++
++/**
++ * Groups the retest, hold and trade steps of every break by candle time, in
++ * the order they happen, so each candle can show them under its name.
++ */
++export function stepWordsByTime(breaks: readonly StructureBreak[]): Map<number, StepWord[]> {
++  const words = new Map<number, StepWord[]>();
++  const add = (time: number, word: StepWord) => {
++    const list = words.get(time) ?? [];
++    if (!list.some((w) => w.text === word.text)) list.push(word);
++    words.set(time, list);
++  };
++  for (const b of breaks) {
++    if (b.retest) add(b.retest.time, { kind: "retest", text: "Retest", direction: b.direction });
++    if (b.hold) add(b.hold.time, { kind: "hold", text: "Hold", direction: b.direction });
++    if (b.trade) {
++      add(b.trade.time, {
++        kind: "trade",
++        text: b.direction === "bullish" ? "Trade \u25B2" : "Trade \u25BC",
++        direction: b.direction,
++      });
++    }
++  }
++  return words;
++}

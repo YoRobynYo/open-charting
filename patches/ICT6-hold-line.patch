@@ -1,0 +1,61 @@
+[1mdiff --git a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[1mindex 49809ca..7fe4997 100644[m
+[1m--- a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[1m+++ b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts[m
+[36m@@ -65,14 +65,27 @@[m [mclass TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {[m
+         const directionColor = setup.direction === "long" ? "#22c55e" : "#f43f5e";[m
+         const levelY = setup.levelY;[m
+         if (levelY !== undefined) {[m
+[32m+[m[32m          const lineStartX = Math.max(0, setup.breakX ?? setup.sweepX ?? setup.liquidityX ?? 0);[m
+           ctx.strokeStyle = "rgba(167, 139, 250, 0.7)";[m
+           ctx.lineWidth = 1.5;[m
+           ctx.setLineDash([5, 4]);[m
+           ctx.beginPath();[m
+[31m-          ctx.moveTo(Math.max(0, setup.breakX ?? setup.sweepX ?? setup.liquidityX ?? 0), levelY);[m
+[32m+[m[32m          ctx.moveTo(lineStartX, levelY);[m
+           ctx.lineTo(width - 4, levelY);[m
+           ctx.stroke();[m
+           ctx.setLineDash([]);[m
+[32m+[m
+[32m+[m[32m          // A HOLD is only confirmed after the retest has completed.[m
+[32m+[m[32m          if (setup.stage === "candidate" && setup.retestTime !== undefined) {[m
+[32m+[m[32m            drawSetupLineLabel([m
+[32m+[m[32m              ctx,[m
+[32m+[m[32m              setup.retestX ?? lineStartX + 24,[m
+[32m+[m[32m              levelY,[m
+[32m+[m[32m              "HOLD",[m
+[32m+[m[32m              directionColor,[m
+[32m+[m[32m              width,[m
+[32m+[m[32m            );[m
+[32m+[m[32m          }[m
+         }[m
+ [m
+         const markers: Array<{ x?: number; y?: number; color: string }> = [[m
+[36m@@ -124,6 +137,27 @@[m [mfunction drawPlanLine([m
+   ctx.fillText(label, width - 8, y - 8);[m
+ }[m
+ [m
+[32m+[m[32mfunction drawSetupLineLabel([m
+[32m+[m[32m  ctx: CanvasRenderingContext2D,[m
+[32m+[m[32m  x: number,[m
+[32m+[m[32m  y: number,[m
+[32m+[m[32m  label: string,[m
+[32m+[m[32m  color: string,[m
+[32m+[m[32m  width: number,[m
+[32m+[m[32m): void {[m
+[32m+[m[32m  const padding = 4;[m
+[32m+[m[32m  const textWidth = ctx.measureText(label).width;[m
+[32m+[m[32m  const boxWidth = textWidth + padding * 2;[m
+[32m+[m[32m  const centerX = Math.min(Math.max(boxWidth / 2 + 4, x), width - boxWidth / 2 - 4);[m
+[32m+[m[32m  const baselineY = y - 8;[m
+[32m+[m
+[32m+[m[32m  ctx.fillStyle = "rgba(9, 12, 18, 0.9)";[m
+[32m+[m[32m  ctx.fillRect(centerX - boxWidth / 2, baselineY - 8, boxWidth, 16);[m
+[32m+[m[32m  ctx.fillStyle = color;[m
+[32m+[m[32m  ctx.textAlign = "center";[m
+[32m+[m[32m  ctx.fillText(label, centerX, baselineY);[m
+[32m+[m[32m}[m
+[32m+[m
+ class TradeSetupPaneView implements ISeriesPrimitivePaneView {[m
+   private positioned: PositionedSetup[] = [];[m
+   private positionedBreaks: PositionedBreak[] = [];[m

@@ -1,0 +1,89 @@
+diff --git a/src/lib/candle-patterns.ts b/src/lib/candle-patterns.ts
+index 42f3213..93c44d8 100644
+--- a/src/lib/candle-patterns.ts
++++ b/src/lib/candle-patterns.ts
+@@ -47,6 +47,17 @@ export interface CandlePatternResult {
+ const EPSILON = 1e-12;
+ const MARUBOZU_MAX_WICK_RATIO = 0.1;
+ const STAR_MAX_MIDDLE_BODY_RATIO = 0.35;
++// Tuning knobs: raise these to see fewer patterns, lower them to see more.
++/** First and third candles of a star need a solid body (share of their range). */
++const STAR_MIN_OUTER_BODY_RATIO = 0.5;
++/** The star's middle body must be at most this share of the first candle's body. */
++const STAR_MAX_MIDDLE_VS_FIRST_BODY = 0.5;
++/** The engulfing candle needs a decisive body (share of its own range). */
++const ENGULFING_MIN_BODY_RATIO = 0.5;
++/** How many previous candles define "recent average size". */
++const SIGNIFICANCE_LOOKBACK = 14;
++/** A pattern candle's range must reach this share of the recent average range. */
++const MIN_RANGE_VS_AVERAGE = 0.8;
+ 
+ function noPattern(anatomy: CandleAnatomy, explanation: string): CandlePatternResult {
+   return {
+@@ -151,9 +162,10 @@ export function detectRejectionCandle(candle: Candle): CandlePatternResult {
+ export function detectEngulfing(previous: Candle, current: Candle): CandlePatternResult {
+   const anatomy = getCandleAnatomy(current);
+   const previousAnatomy = getCandleAnatomy(previous);
+-  const bullish = previousAnatomy.bearish && anatomy.bullish &&
++  const decisive = anatomy.bodyRatio >= ENGULFING_MIN_BODY_RATIO;
++  const bullish = decisive && previousAnatomy.bearish && anatomy.bullish &&
+     current.open <= previous.close && current.close >= previous.open;
+-  const bearish = previousAnatomy.bullish && anatomy.bearish &&
++  const bearish = decisive && previousAnatomy.bullish && anatomy.bearish &&
+     current.open >= previous.close && current.close <= previous.open;
+ 
+   if (bullish) {
+@@ -188,11 +200,14 @@ export function detectStarPattern(
+   const firstAnatomy = getCandleAnatomy(first);
+   const middleAnatomy = getCandleAnatomy(middle);
+   const thirdAnatomy = getCandleAnatomy(third);
+-  const middleIsSmall = middleAnatomy.bodyRatio <= STAR_MAX_MIDDLE_BODY_RATIO;
++  const middleIsSmall = middleAnatomy.bodyRatio <= STAR_MAX_MIDDLE_BODY_RATIO &&
++    middleAnatomy.body <= firstAnatomy.body * STAR_MAX_MIDDLE_VS_FIRST_BODY;
++  const outerCandlesSolid = firstAnatomy.bodyRatio >= STAR_MIN_OUTER_BODY_RATIO &&
++    thirdAnatomy.bodyRatio >= STAR_MIN_OUTER_BODY_RATIO;
+   const firstBodyMidpoint = (first.open + first.close) / 2;
+-  const morningStar = firstAnatomy.bearish && middleIsSmall && thirdAnatomy.bullish &&
++  const morningStar = outerCandlesSolid && firstAnatomy.bearish && middleIsSmall && thirdAnatomy.bullish &&
+     third.close > firstBodyMidpoint;
+-  const eveningStar = firstAnatomy.bullish && middleIsSmall && thirdAnatomy.bearish &&
++  const eveningStar = outerCandlesSolid && firstAnatomy.bullish && middleIsSmall && thirdAnatomy.bearish &&
+     third.close < firstBodyMidpoint;
+ 
+   if (morningStar) {
+@@ -214,6 +229,24 @@ export function detectStarPattern(
+   return noPattern(thirdAnatomy, "The three-candle sequence does not meet the configured morning-star or evening-star proportions.");
+ }
+ 
++/**
++ * A pattern candle must be a meaningful size next to the previous candles, so
++ * tiny candles in quiet stretches do not trigger signals. With fewer than three
++ * previous candles there is nothing to compare against, so the candle passes.
++ */
++function isSignificantCandle(candles: readonly Candle[], index: number): boolean {
++  const start = Math.max(0, index - SIGNIFICANCE_LOOKBACK);
++  const count = index - start;
++  if (count < 3) return true;
++  let total = 0;
++  for (let i = start; i < index; i++) {
++    const previous = candles[i]!;
++    total += previous.high - previous.low;
++  }
++  const current = candles[index]!;
++  return current.high - current.low >= (total / count) * MIN_RANGE_VS_AVERAGE;
++}
++
+ /** Classify the pattern confirmed on a candle using the available prior context. */
+ export function detectCandlePatternAt(
+   candles: readonly Candle[],
+@@ -231,6 +264,10 @@ export function detectCandlePatternAt(
+     }), "No candle is available at this index.");
+   }
+ 
++  if (!isSignificantCandle(candles, index)) {
++    return noPattern(getCandleAnatomy(current), "The candle is small compared with recent candles.");
++  }
++
+   if (index >= 2) {
+     const star = detectStarPattern(candles[index - 2]!, candles[index - 1]!, current);
+     if (star.pattern !== "none") return star;

@@ -1,0 +1,16 @@
+diff --git a/src/pages/TradingPage.tsx b/src/pages/TradingPage.tsx
+index bf6e2a4..529e9ef 100644
+--- a/src/pages/TradingPage.tsx
++++ b/src/pages/TradingPage.tsx
+@@ -264,7 +264,10 @@ export function TradingPage() {
+               isReplaying={isReplaying}
+               activePlugins={activePlugins}
+               aiPoints={chartAiPoints}
+-              onOpenAi={aiEnabled ? () => setAiDrawerOpen(true) : undefined}
++              onOpenAi={() => {
++                if (!aiEnabled) handleTogglePlugin("ai");
++                setAiDrawerOpen(true);
++              }}
+               onTogglePlugin={handleTogglePlugin}
+               accountEquity={account?.equity ?? account?.balance ?? 0}
+               accountId={activeAccountId}

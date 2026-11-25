@@ -1,0 +1,591 @@
+diff --git a/src/lib/chart-plugins/character-candles/animations.ts b/src/lib/chart-plugins/character-candles/animations.ts
+new file mode 100644
+index 0000000..2fefb0f
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/animations.ts
+@@ -0,0 +1,126 @@
++/**
++ * Stateless animations for the star and firework characters. Everything is a
++ * pure function of time `t` (seconds) and the candle index, so there is no
++ * per-candle state to manage and replay just works.
++ */
++
++export interface Motion {
++  /** Vertical offset as a fraction of sprite width (positive = down). */
++  dy: number;
++  /** Horizontal width multiplier (1 = normal). */
++  scaleW: number;
++  /** Sprite opacity 0 to 1. */
++  alpha: number;
++  /** Optional glow colour drawn behind the sprite. */
++  glow?: string;
++  /** Glow strength 0 to 1. */
++  glowAmount?: number;
++}
++
++export interface Emitter {
++  color: string;
++  /** Particles alive at once. */
++  count: number;
++  /** Where they spawn relative to the sprite. */
++  origin: "top" | "bottom" | "center";
++  /** Travel direction: up, down or radial (burst outward). */
++  dir: "up" | "down" | "radial";
++  /** Cycles per second. */
++  speed: number;
++  /** Travel distance as a multiple of sprite width. */
++  reach: number;
++  /** Particle radius as a fraction of sprite width. */
++  size: number;
++}
++
++export interface CharacterAnimation {
++  motion: (t: number, seed: number) => Motion;
++  emitter?: Emitter;
++}
++
++const wave = (t: number, hz: number, seed = 0) => Math.sin((t * hz + seed * 0.37) * Math.PI * 2);
++const flicker = (t: number, seed: number) =>
++  0.5 + 0.5 * Math.sin(t * 23 + seed) * Math.sin(t * 37 + seed * 2.1);
++
++export const CHARACTER_ANIMATIONS: Record<string, CharacterAnimation> = {
++  skyrocket: {
++    motion: (t, s) => ({ dy: -0.03 * wave(t, 6, s), scaleW: 1, alpha: 1 }),
++    emitter: { color: "#ffb347", count: 8, origin: "bottom", dir: "down", speed: 1.6, reach: 1.2, size: 0.07 },
++  },
++  meteor: {
++    motion: (t, s) => ({ dy: 0.02 * wave(t, 8, s), scaleW: 1, alpha: 1, glow: "#ff5a36", glowAmount: 0.5 + 0.4 * flicker(t, s) }),
++    emitter: { color: "#ff7a45", count: 8, origin: "top", dir: "up", speed: 1.4, reach: 1.3, size: 0.07 },
++  },
++  "grand-finale": {
++    motion: (t, s) => ({ dy: 0, scaleW: 1 + 0.06 * Math.max(0, wave(t, 1.2, s)), alpha: 1, glow: "#ffd54a", glowAmount: 0.35 }),
++    emitter: { color: "#ffd54a", count: 14, origin: "center", dir: "radial", speed: 0.9, reach: 1.1, size: 0.06 },
++  },
++  "snuffed-out": {
++    motion: (t, s) => ({ dy: 0.025 * wave(t, 0.8, s), scaleW: 1, alpha: 0.85 + 0.15 * flicker(t, s) }),
++    emitter: { color: "#9aa0a6", count: 6, origin: "top", dir: "up", speed: 0.5, reach: 1.0, size: 0.09 },
++  },
++  sparkler: {
++    motion: (t, s) => ({ dy: -0.02 * wave(t, 3, s), scaleW: 1, alpha: 1 }),
++    emitter: { color: "#fff3b0", count: 12, origin: "top", dir: "radial", speed: 2.2, reach: 0.8, size: 0.045 },
++  },
++  "roman-candle": {
++    motion: (t, s) => ({ dy: 0, scaleW: 1, alpha: 1, glow: "#ff6bd6", glowAmount: 0.2 + 0.3 * Math.max(0, wave(t, 0.9, s)) }),
++    emitter: { color: "#ff6bd6", count: 3, origin: "top", dir: "up", speed: 0.9, reach: 1.6, size: 0.1 },
++  },
++  comet: {
++    motion: (t, s) => ({ dy: 0.03 * wave(t, 2, s), scaleW: 1, alpha: 1, glow: "#8ecbff", glowAmount: 0.5 }),
++    emitter: { color: "#bfe3ff", count: 9, origin: "top", dir: "up", speed: 1.0, reach: 1.5, size: 0.06 },
++  },
++  "falling-ember": {
++    motion: (t, s) => ({ dy: 0.04 * wave(t, 1, s), scaleW: 1, alpha: 0.7 + 0.3 * flicker(t, s), glow: "#ff8a3d", glowAmount: 0.25 * flicker(t, s) }),
++    emitter: { color: "#ff9a4d", count: 5, origin: "bottom", dir: "down", speed: 0.6, reach: 1.1, size: 0.05 },
++  },
++  "dawn-star": {
++    motion: (t, s) => ({ dy: -0.02 * wave(t, 1, s), scaleW: 1, alpha: 1, glow: "#ffe08a", glowAmount: 0.3 + 0.3 * (0.5 + 0.5 * wave(t, 0.6, s)) }),
++    emitter: { color: "#fff0b8", count: 6, origin: "center", dir: "radial", speed: 0.5, reach: 0.9, size: 0.04 },
++  },
++  "dusk-star": {
++    motion: (t, s) => ({ dy: 0.02 * wave(t, 0.8, s), scaleW: 1, alpha: 0.6 + 0.4 * (0.5 + 0.5 * wave(t, 0.5, s)), glow: "#9b7bff", glowAmount: 0.3 }),
++    emitter: { color: "#b9a6ff", count: 5, origin: "center", dir: "radial", speed: 0.4, reach: 0.8, size: 0.04 },
++  },
++};
++
++/** Cheap deterministic hash in [0, 1). */
++export function hash01(a: number, b: number): number {
++  const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
++  return x - Math.floor(x);
++}
++
++export interface Particle {
++  x: number;
++  y: number;
++  alpha: number;
++  radius: number;
++}
++
++/** Position of particle `k` for a sprite whose top-left is (x0, y0). */
++export function particleAt(
++  e: Emitter,
++  k: number,
++  seed: number,
++  t: number,
++  x0: number,
++  y0: number,
++  w: number,
++  h: number,
++): Particle {
++  const phase = (t * e.speed + hash01(seed, k)) % 1;
++  const jitter = hash01(k, seed + 3) - 0.5;
++  const cx = x0 + w / 2;
++  const oy = e.origin === "top" ? y0 : e.origin === "bottom" ? y0 + h : y0 + h / 2;
++  let x = cx + jitter * w * 0.6;
++  let y = oy;
++  if (e.dir === "up") y -= phase * e.reach * w;
++  else if (e.dir === "down") y += phase * e.reach * w;
++  else {
++    const angle = hash01(k, seed + 7) * Math.PI * 2;
++    x = cx + Math.cos(angle) * phase * e.reach * w;
++    y = oy + Math.sin(angle) * phase * e.reach * w;
++  }
++  return { x, y, alpha: 1 - phase, radius: e.size * w * (1 - phase * 0.5) };
++}
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+new file mode 100644
+index 0000000..2e56bae
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -0,0 +1,402 @@
++import type {
++  CandlestickData,
++  ISeriesPrimitivePaneRenderer,
++  ISeriesPrimitivePaneView,
++  Time,
++} from "lightweight-charts";
++import type { CanvasRenderingTarget2D } from "fancy-canvas";
++import { PluginBase } from "../plugin-base";
++import { detectCandlePatternAt, type CandlePattern } from "../../candle-patterns";
++import type { Candle } from "../../../services/schemas";
++import { CHARACTER_ANIMATIONS, particleAt } from "./animations";
++
++/** Which character sprite each detected pattern uses. Add more as you create art. */
++export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
++  "bullish-marubozu": "skyrocket",
++  "bearish-marubozu": "meteor",
++  "bullish-engulfing": "grand-finale",
++  "bearish-engulfing": "snuffed-out",
++  hammer: "sparkler",
++  "inverted-hammer": "roman-candle",
++  "shooting-star": "comet",
++  "hanging-man": "falling-ember",
++  "morning-star": "dawn-star",
++  "evening-star": "dusk-star",
++};
++
++/** Real pattern names shown on the chart labels (never the character names). */
++export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
++  hammer: "Hammer",
++  "inverted-hammer": "Inverted Hammer",
++  "shooting-star": "Shooting Star",
++  "hanging-man": "Hanging Man",
++  "bullish-engulfing": "Bullish Engulfing",
++  "bearish-engulfing": "Bearish Engulfing",
++  "morning-star": "Morning Star",
++  "evening-star": "Evening Star",
++  "bullish-marubozu": "Bullish Marubozu",
++  "bearish-marubozu": "Bearish Marubozu",
++};
++
++/** Label colours, from the original ICT candle-pattern colour table. */
++export const PATTERN_COLOR: Partial<Record<CandlePattern, string>> = {
++  hammer: "#22d3ee",
++  "inverted-hammer": "#67e8f9",
++  "shooting-star": "#f59e0b",
++  "hanging-man": "#fbbf24",
++  "bullish-engulfing": "#39ff14",
++  "bearish-engulfing": "#ff3b5c",
++  "morning-star": "#4ade80",
++  "evening-star": "#fb7185",
++  "bullish-marubozu": "#16a34a",
++  "bearish-marubozu": "#dc2626",
++};
++
++export interface CharacterCandlesOptions {
++  /** Folder under /public that holds the PNGs, e.g. /characters/blaze.png */
++  basePath: string;
++  /** Fraction of the bar width the sprite fills. */
++  widthRatio: number;
++  /** Sprite never gets shorter than this, so tiny bodies stay readable. */
++  minHeightPx: number;
++  /** Sprite never gets wider than this. */
++  maxWidthPx: number;
++  /** Do not draw sprites when bars are thinner than this (zoomed far out). */
++  minBarSpacingPx: number;
++  /** Fractions of the image kept as fixed head and feet. Middle stretches. */
++  headSlice: number;
++  feetSlice: number;
++  /** Play motion and particles. Respects the OS reduced-motion setting. */
++  animate: boolean;
++  /** Only the newest N visible characters animate, to keep the chart fast. */
++  maxAnimated: number;
++  /** Draw a short leader line and the real pattern name above each character. */
++  showLabels: boolean;
++  /** Label text size in CSS pixels. */
++  labelFontPx: number;
++  /** Length of the leader line between the wick and the label, in CSS pixels. */
++  labelLeadPx: number;
++}
++
++const DEFAULTS: CharacterCandlesOptions = {
++  basePath: "/characters",
++  widthRatio: 0.9,
++  minHeightPx: 18,
++  maxWidthPx: 64,
++  minBarSpacingPx: 8,
++  headSlice: 0.28,
++  feetSlice: 0.2,
++  animate: true,
++  maxAnimated: 40,
++  showLabels: true,
++  labelFontPx: 11,
++  labelLeadPx: 10,
++};
++
++class SpriteCache {
++  private images = new Map<string, HTMLImageElement | "failed">();
++  constructor(private basePath: string, private onLoad: () => void) {}
++
++  get(name: string): HTMLImageElement | null {
++    const hit = this.images.get(name);
++    if (hit === "failed") return null;
++    if (hit) return hit.complete && hit.naturalWidth > 0 ? hit : null;
++    const img = new Image();
++    img.onload = () => this.onLoad();
++    img.onerror = () => this.images.set(name, "failed");
++    img.src = `${this.basePath}/${name}.png`;
++    this.images.set(name, img);
++    return null;
++  }
++}
++
++class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
++  constructor(private source: CharacterCandles) {}
++
++  draw(target: CanvasRenderingTarget2D) {
++    const { chart, series, options } = this.source.context();
++    const range = chart.timeScale().getVisibleLogicalRange();
++    const data = series.data() as CandlestickData<Time>[];
++    if (!range || data.length === 0) return;
++
++    const barSpacing = chart.timeScale().options().barSpacing;
++    if (barSpacing < options.minBarSpacingPx) return;
++
++    const from = Math.max(0, Math.floor(range.from) - 1);
++    const to = Math.min(data.length - 1, Math.ceil(range.to) + 1);
++    const candles = data as unknown as Candle[];
++
++    const animating = this.source.isAnimating();
++    const t = performance.now() / 1000;
++
++    target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr, bitmapSize }) => {
++      // Collect first so only the newest characters animate.
++      const items: Array<{ i: number; name: string; pattern: CandlePattern; sprite: HTMLImageElement }> = [];
++      for (let i = from; i <= to; i++) {
++        const pattern = detectCandlePatternAt(candles, i).pattern;
++        const name = PATTERN_TO_CHARACTER[pattern];
++        if (!name) continue;
++        const sprite = this.source.sprites.get(name);
++        if (sprite) items.push({ i, name, pattern, sprite });
++      }
++      const firstAnimated = items.length - options.maxAnimated;
++
++      items.forEach(({ i, name, sprite }, n) => {
++        const bar = data[i];
++        if (!bar) return;
++        const x = chart.timeScale().logicalToCoordinate(i as never);
++        const yOpen = series.priceToCoordinate(bar.open);
++        const yClose = series.priceToCoordinate(bar.close);
++        if (x === null || yOpen === null || yClose === null) return;
++
++        const top = Math.min(yOpen, yClose);
++        const bodyH = Math.max(Math.abs(yClose - yOpen), options.minHeightPx);
++        const baseW = Math.min(barSpacing * options.widthRatio, options.maxWidthPx);
++
++        const anim = animating && n >= firstAnimated ? CHARACTER_ANIMATIONS[name] : undefined;
++        const m = anim?.motion(t, i);
++        const w = baseW * (m?.scaleW ?? 1);
++        const left = x - w / 2;
++        const y = top + (m ? m.dy * baseW : 0);
++
++        ctx.save();
++        if (m?.glow && m.glowAmount) {
++          ctx.shadowColor = m.glow;
++          ctx.shadowBlur = 14 * m.glowAmount * hpr;
++        }
++        ctx.globalAlpha = m?.alpha ?? 1;
++        drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, bodyH * vpr, options.headSlice, options.feetSlice);
++        ctx.restore();
++
++        const e = anim?.emitter;
++        if (e) {
++          ctx.save();
++          ctx.fillStyle = e.color;
++          for (let k = 0; k < e.count; k++) {
++            const p = particleAt(e, k, i, t, left, y, w, bodyH);
++            ctx.globalAlpha = Math.max(0, p.alpha);
++            ctx.beginPath();
++            ctx.arc(p.x * hpr, p.y * vpr, Math.max(0.6, p.radius) * hpr, 0, Math.PI * 2);
++            ctx.fill();
++          }
++          ctx.restore();
++        }
++      });
++
++      if (options.showLabels) {
++        const labels: LabelInput[] = [];
++        for (const { i, pattern } of items) {
++          const bar = data[i];
++          const text = PATTERN_LABEL[pattern];
++          if (!bar || !text) continue;
++          const x = chart.timeScale().logicalToCoordinate(i as never);
++          const yHigh = series.priceToCoordinate(bar.high);
++          const yLow = series.priceToCoordinate(bar.low);
++          if (x === null || yHigh === null || yLow === null) continue;
++          labels.push({ x, yHigh, yLow, text, color: PATTERN_COLOR[pattern] ?? "#e5e7eb" });
++        }
++        drawLabels(ctx, labels, {
++          hpr,
++          vpr,
++          width: bitmapSize.width,
++          height: bitmapSize.height,
++          fontPx: options.labelFontPx,
++          leadPx: options.labelLeadPx,
++        });
++      }
++    });
++  }
++}
++
++interface LabelInput {
++  x: number;
++  yHigh: number;
++  yLow: number;
++  text: string;
++  color: string;
++}
++
++/**
++ * Pattern-name tags: a short leader line from the wick to a small tag showing
++ * the real pattern name. Tags sit above the candle, stack upward when a
++ * neighbour would overlap, and flip below the candle if there is no room above.
++ */
++function drawLabels(
++  ctx: CanvasRenderingContext2D,
++  labels: LabelInput[],
++  v: { hpr: number; vpr: number; width: number; height: number; fontPx: number; leadPx: number },
++) {
++  const { hpr, vpr } = v;
++  const fontPx = v.fontPx * vpr;
++  const padX = 5 * hpr;
++  const padY = 3 * vpr;
++  const margin = 2 * vpr;
++  const lead = v.leadPx * vpr;
++  const boxH = fontPx + padY * 2;
++  const radius = 4 * hpr;
++  const placed: Array<{ x1: number; x2: number; y1: number; y2: number }> = [];
++
++  ctx.save();
++  ctx.font = `600 ${fontPx}px system-ui, -apple-system, "Segoe UI", sans-serif`;
++  ctx.textAlign = "center";
++  ctx.textBaseline = "middle";
++  ctx.lineWidth = Math.max(1, hpr);
++
++  for (const l of labels) {
++    const cx = l.x * hpr;
++    const boxW = ctx.measureText(l.text).width + padX * 2;
++    const x1 = Math.min(Math.max(cx - boxW / 2, 2 * hpr), Math.max(2 * hpr, v.width - boxW - 2 * hpr));
++    const x2 = x1 + boxW;
++
++    // Candidate positions: above first (stepping higher), then below.
++    const candidates: Array<{ y1: number; fromY: number; toY: number }> = [];
++    for (const above of [true, false]) {
++      for (let level = 0; level < 4; level++) {
++        const step = level * (boxH + margin);
++        if (above) {
++          const fromY = l.yHigh * vpr - 3 * vpr;
++          const bottom = fromY - lead - step;
++          candidates.push({ y1: bottom - boxH, fromY, toY: bottom });
++        } else {
++          const fromY = l.yLow * vpr + 3 * vpr;
++          const top = fromY + lead + step;
++          candidates.push({ y1: top, fromY, toY: top });
++        }
++      }
++    }
++    const spot = candidates.find((c) => {
++      if (c.y1 < 0 || c.y1 + boxH > v.height) return false;
++      return !placed.some(
++        (p) => x1 < p.x2 + margin && x2 > p.x1 - margin && c.y1 < p.y2 + margin && c.y1 + boxH > p.y1 - margin,
++      );
++    });
++    if (!spot) continue;
++    placed.push({ x1, x2, y1: spot.y1, y2: spot.y1 + boxH });
++
++    // Leader line from the wick to the tag.
++    const lineX = Math.min(Math.max(cx, x1 + radius), x2 - radius);
++    ctx.strokeStyle = l.color;
++    ctx.beginPath();
++    ctx.moveTo(cx, spot.fromY);
++    ctx.lineTo(lineX, spot.toY);
++    ctx.stroke();
++
++    // Tag.
++    const y1 = spot.y1;
++    const y2 = y1 + boxH;
++    ctx.beginPath();
++    ctx.moveTo(x1 + radius, y1);
++    ctx.arcTo(x2, y1, x2, y2, radius);
++    ctx.arcTo(x2, y2, x1, y2, radius);
++    ctx.arcTo(x1, y2, x1, y1, radius);
++    ctx.arcTo(x1, y1, x2, y1, radius);
++    ctx.closePath();
++    ctx.fillStyle = "rgba(15, 17, 23, 0.9)";
++    ctx.fill();
++    ctx.strokeStyle = l.color;
++    ctx.stroke();
++    ctx.fillStyle = "#f3f4f6";
++    ctx.fillText(l.text, x1 + boxW / 2, y1 + boxH / 2 + vpr * 0.5);
++  }
++  ctx.restore();
++}
++
++/**
++ * Head and feet keep their proportions; only the middle stretches, so faces
++ * do not distort when a candle is tall.
++ */
++function drawThreeSlice(
++  ctx: CanvasRenderingContext2D,
++  img: HTMLImageElement,
++  dx: number,
++  dy: number,
++  dw: number,
++  dh: number,
++  headFrac: number,
++  feetFrac: number,
++) {
++  const sw = img.naturalWidth;
++  const sh = img.naturalHeight;
++  const headSrc = sh * headFrac;
++  const feetSrc = sh * feetFrac;
++  const midSrc = sh - headSrc - feetSrc;
++
++  const scale = dw / sw;
++  let headDst = headSrc * scale;
++  let feetDst = feetSrc * scale;
++  const fixed = headDst + feetDst;
++  if (fixed > dh) {
++    // Candle shorter than head+feet: shrink both evenly, no middle.
++    const k = dh / fixed;
++    headDst *= k;
++    feetDst *= k;
++  }
++  const midDst = Math.max(0, dh - headDst - feetDst);
++
++  ctx.drawImage(img, 0, 0, sw, headSrc, dx, dy, dw, headDst);
++  if (midDst > 0) ctx.drawImage(img, 0, headSrc, sw, midSrc, dx, dy + headDst, dw, midDst);
++  ctx.drawImage(img, 0, headSrc + midSrc, sw, feetSrc, dx, dy + headDst + midDst, dw, feetDst);
++}
++
++class CharacterPaneView implements ISeriesPrimitivePaneView {
++  private _renderer: CharacterRenderer;
++  constructor(source: CharacterCandles) {
++    this._renderer = new CharacterRenderer(source);
++  }
++  zOrder() {
++    return "top" as const;
++  }
++  renderer() {
++    return this._renderer;
++  }
++}
++
++export class CharacterCandles extends PluginBase {
++  private _options: CharacterCandlesOptions;
++  private _views: CharacterPaneView[];
++  public sprites: SpriteCache;
++
++  constructor(options: Partial<CharacterCandlesOptions> = {}) {
++    super();
++    this._options = { ...DEFAULTS, ...options };
++    this.sprites = new SpriteCache(this._options.basePath, () => this.requestUpdate());
++    this._views = [new CharacterPaneView(this)];
++  }
++
++  private _raf: number | null = null;
++  private _reduceMotion =
++    typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
++
++  /** True when motion is on and the tab is visible. */
++  isAnimating(): boolean {
++    return this._options.animate && !this._reduceMotion && !document.hidden;
++  }
++
++  public override attached(param: Parameters<PluginBase["attached"]>[0]) {
++    super.attached(param);
++    if (!this._options.animate || this._reduceMotion) return;
++    const tick = () => {
++      this.requestUpdate();
++      this._raf = requestAnimationFrame(tick);
++    };
++    this._raf = requestAnimationFrame(tick);
++  }
++
++  public override detached() {
++    if (this._raf !== null) cancelAnimationFrame(this._raf);
++    this._raf = null;
++    super.detached();
++  }
++
++  context() {
++    return { chart: this.chart, series: this.series, options: this._options };
++  }
++
++  protected dataUpdated() {
++    this.requestUpdate();
++  }
++
++  paneViews() {
++    return this._views;
++  }
++}
+diff --git a/src/pages/trading/ChartPanel.tsx b/src/pages/trading/ChartPanel.tsx
+index 8e46c87..3735ed7 100644
+--- a/src/pages/trading/ChartPanel.tsx
++++ b/src/pages/trading/ChartPanel.tsx
+@@ -26,6 +26,7 @@ import {
+   useState,
+ } from "react";
+ import { useChartPreferences } from "../../hooks/useChartPreferences.ts";
++import { CharacterCandles } from "../../lib/chart-plugins/character-candles/character-candles.ts";
+ import { BandsIndicator } from "../../lib/chart-plugins/bands-indicator/bands-indicator.ts";
+ import { DeltaTooltipPrimitive } from "../../lib/chart-plugins/delta-tooltip/delta-tooltip.ts";
+ import {
+@@ -1923,6 +1924,26 @@ export function ChartPanel({
+     );
+   }, [activePlugins, isDark, selectedSymbol, timeframe, symbolCategory]);
+ 
++  // ICT Structure 6 (Candle Extras): character sprites drawn over matching candle bodies.
++  const characterCandlesEnabled = activePlugins.includes("character-candles");
++  useEffect(() => {
++    const series = candleSeriesRef.current;
++    if (!series || !characterCandlesEnabled) return;
++    const plugin = new CharacterCandles();
++    try {
++      series.attachPrimitive(plugin);
++    } catch {
++      return;
++    }
++    return () => {
++      try {
++        series.detachPrimitive(plugin);
++      } catch {
++        /* chart instance may already have been removed */
++      }
++    };
++  }, [characterCandlesEnabled, chartEpoch]);
++
+   // The AI layer owns only its point annotations. Updating a chat response
+   // replaces this primitive alone; ICT/session/indicator plugins stay attached.
+   const aiLayerEnabled = activePlugins.includes("ai");
+diff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx
+index 9dd841d..9249898 100644
+--- a/src/pages/trading/ChartToolbar.tsx
++++ b/src/pages/trading/ChartToolbar.tsx
+@@ -521,6 +521,7 @@ const CHART_PLUGIN_ITEMS = [
+   { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
+   { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
+   { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
++  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Extras" },
+   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
+   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
+ ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;

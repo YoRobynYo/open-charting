@@ -1,0 +1,17 @@
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index 79a611f..b177a02 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -18,0 +19 @@ import { actionForCandle, type CandleAction } from "./candle-action";
++import { isPendingCandle } from "./candle-pending";
+@@ -263,0 +265,3 @@ import { actionForCandle, type CandleAction } from "./candle-action";
++          const pending = options.actionWords && bias && action === "Break"
++            ? isPendingCandle(this.source.setups, candles[i]!.time, bias, barSeconds, candles[candles.length - 1]!.time)
++            : false;
+@@ -268,0 +273 @@ import { actionForCandle, type CandleAction } from "./candle-action";
++            pending,
+@@ -298,0 +304 @@ import { actionForCandle, type CandleAction } from "./candle-action";
++  pending?: boolean;
+@@ -334 +340 @@ import { actionForCandle, type CandleAction } from "./candle-action";
+-    if (l.action) lines.push({ text: l.action, color: ACTION_COLOR[l.action] });
++    if (l.action) lines.push({ text: l.pending ? `${l.action} → Pending` : l.action, color: l.pending ? "#94a3b8" : ACTION_COLOR[l.action] });

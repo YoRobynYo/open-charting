@@ -1,0 +1,312 @@
+diff --git a/src/__tests__/structure-breaks.test.ts b/src/__tests__/structure-breaks.test.ts
+index f8d6925..783a822 100644
+--- a/src/__tests__/structure-breaks.test.ts
++++ b/src/__tests__/structure-breaks.test.ts
+@@ -73,6 +73,74 @@ describe("detectStructureBreaks", () => {
+   });
+ });
+ 
++describe("retest and hold", () => {
++  const candle = (time: number, open: number, high: number, low: number, close: number): IctCandle =>
++    ({ time, open, high, low, close });
++  /** Everything up to and including the bullish BOS at time 18, then the given candles and one still forming. */
++  const bullishAfterBreak = (tail: IctCandle[]) => [
++    ...waveCandles(WAVE, 31).slice(0, 18),
++    ...tail,
++    candle(18 + tail.length + 1, 126, 127, 125, 126),
++  ];
++  const mirror = (candles: IctCandle[]): IctCandle[] => candles.map((c) => ({
++    time: c.time,
++    open: 200 - c.open,
++    high: 200 - c.low,
++    low: 200 - c.high,
++    close: 200 - c.close,
++  }));
++  const bosAt18 = (candles: IctCandle[], direction: "bullish" | "bearish") =>
++    detectStructureBreaks(candles, { strength: 3 }).find((b) => b.time === 18 && b.direction === direction);
++
++  it("finds the candle that came back to the level and closed above it", () => {
++    const b = bosAt18(bullishAfterBreak([
++      candle(19, 126, 128, 125, 127),
++      candle(20, 127, 127, 120, 123),
++    ]), "bullish");
++
++    expect(b?.price).toBe(121);
++    expect(b?.retest).toEqual({ time: 20, extreme: 120 });
++  });
++
++  it("has no hold while price stays away from the level", () => {
++    const b = bosAt18(bullishAfterBreak([
++      candle(19, 126, 128, 125, 127),
++      candle(20, 127, 130, 126, 129),
++    ]), "bullish");
++
++    expect(b).toBeDefined();
++    expect(b?.retest).toBeUndefined();
++  });
++
++  it("does not count a touch that closes back through the level", () => {
++    const b = bosAt18(bullishAfterBreak([
++      candle(19, 126, 128, 125, 127),
++      candle(20, 127, 127, 118, 119),
++    ]), "bullish");
++
++    expect(b?.retest).toBeUndefined();
++  });
++
++  it("only looks eight candles past the break", () => {
++    const away = (time: number) => candle(time, 126, 128, 125, 127);
++    const touch = (time: number) => candle(time, 127, 127, 120, 123);
++    const eight = Array.from({ length: 7 }, (_, i) => away(19 + i));
++
++    expect(bosAt18(bullishAfterBreak([...eight, touch(26)]), "bullish")?.retest?.time).toBe(26);
++    expect(bosAt18(bullishAfterBreak([...eight, away(26), touch(27)]), "bullish")?.retest).toBeUndefined();
++  });
++
++  it("holds a bearish break from below, with the candle high as the extreme", () => {
++    const b = bosAt18(mirror(bullishAfterBreak([
++      candle(19, 126, 128, 125, 127),
++      candle(20, 127, 127, 120, 123),
++    ])), "bearish");
++
++    expect(b?.price).toBe(79);
++    expect(b?.retest).toEqual({ time: 20, extreme: 80 });
++  });
++});
++
+ describe("drawStructureBreaks", () => {
+   /** A canvas context that records what is drawn instead of drawing it. */
+   function recorder() {
+@@ -150,4 +218,47 @@ describe("drawStructureBreaks", () => {
+ 
+     expect(calls).toEqual([]);
+   });
++
++  const hold = (b: StructureBreak, time = 30, extreme = b.direction === "bullish" ? b.price - 2 : b.price + 2): StructureBreak =>
++    ({ ...b, retest: { time, extreme } });
++  const texts = (calls: string[]) =>
++    calls.filter((c) => c.startsWith("fillText:")).map((c) => JSON.parse(c.slice(9))[0]);
++  const rects = (calls: string[]) =>
++    calls.filter((c) => c.startsWith("fillRect:")).map((c) => JSON.parse(c.slice(9)) as number[]);
++
++  it("adds a ring and a HOLD arrow when the level held", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [hold(bos)], view());
++
++    expect(texts(calls)).toEqual(["HOLD \u25B2", "BOS"]);
++    expect(calls.filter((c) => c.startsWith("arc:"))).toHaveLength(3);
++  });
++
++  it("points down for a bearish hold", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [hold(choch)], view());
++
++    expect(texts(calls)).toContain("HOLD \u25BC");
++  });
++
++  it("puts a bullish HOLD below the wick and a bearish HOLD above it", () => {
++    const up = recorder();
++    drawStructureBreaks(up.ctx, [hold(bos)], view());
++    const [upTag] = rects(up.calls);
++    // Level 120 is y 380 and the wick reaches 118, which is y 382.
++    expect(upTag![1]).toBeGreaterThanOrEqual(382);
++
++    const down = recorder();
++    drawStructureBreaks(down.ctx, [hold(choch)], view());
++    const [downTag] = rects(down.calls);
++    // Level 90 is y 410 and the wick reaches 92, which is y 408.
++    expect(downTag![1]! + downTag![3]!).toBeLessThanOrEqual(408);
++  });
++
++  it("leaves the HOLD out when the retest candle has no position", () => {
++    const { ctx, calls } = recorder();
++    drawStructureBreaks(ctx, [hold(bos, 999)], view());
++
++    expect(texts(calls)).toEqual(["BOS"]);
++  });
+ });
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index d677ec2..b12a313 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -367,6 +367,25 @@ export function drawStructureBreaks(
+       ctx.fill();
+     }
+ 
++    if (b.retest) {
++      const xr = chart.timeScale().timeToCoordinate(b.retest.time as Time);
++      const yExtreme = series.priceToCoordinate(b.retest.extreme);
++      if (xr !== null && yExtreme !== null) {
++        drawHold(ctx, {
++          x1: x2 * hpr,
++          xr: xr * hpr,
++          y: yPx,
++          yExtreme: yExtreme * vpr,
++          direction: b.direction,
++          color,
++          width: v.width,
++          hpr,
++          vpr,
++          tagH,
++        });
++      }
++    }
++
+     // Keep the tag on screen when the swing is scrolled off to the left.
+     const visibleLeft = Math.max(x1 * hpr, 0);
+     const tagW = ctx.measureText(b.kind).width + 10 * hpr;
+@@ -380,6 +399,60 @@ export function drawStructureBreaks(
+   ctx.restore();
+ }
+ 
++/**
++ * The retest and the hold: a thin line carries on from the break back to the
++ * candle that touched the level, a ring marks that candle, and a HOLD tag with
++ * an arrow sits just past the wick on the far side of the level (below for a
++ * bullish hold, above for a bearish one) so it never covers the candle.
++ */
++function drawHold(
++  ctx: CanvasRenderingContext2D,
++  h: {
++    x1: number;
++    xr: number;
++    y: number;
++    yExtreme: number;
++    direction: "bullish" | "bearish";
++    color: string;
++    width: number;
++    hpr: number;
++    vpr: number;
++    tagH: number;
++  },
++) {
++  const { hpr, vpr, color } = h;
++  const bullish = h.direction === "bullish";
++
++  ctx.save();
++  ctx.globalAlpha = 0.55;
++  ctx.strokeStyle = color;
++  ctx.beginPath();
++  ctx.moveTo(h.x1, h.y);
++  ctx.lineTo(h.xr, h.y);
++  ctx.stroke();
++  ctx.restore();
++
++  ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
++  ctx.strokeStyle = color;
++  ctx.beginPath();
++  ctx.arc(h.xr, h.y, 3.5 * hpr, 0, Math.PI * 2);
++  ctx.fill();
++  ctx.stroke();
++
++  const text = bullish ? "HOLD \u25B2" : "HOLD \u25BC";
++  const tagW = ctx.measureText(text).width + 10 * hpr;
++  const cx = Math.min(Math.max(h.xr, tagW / 2), h.width - tagW / 2);
++  const gap = 5 * vpr;
++  const cy = bullish
++    ? Math.max(h.yExtreme, h.y) + gap + h.tagH / 2
++    : Math.min(h.yExtreme, h.y) - gap - h.tagH / 2;
++  ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
++  ctx.fillRect(cx - tagW / 2, cy - h.tagH / 2, tagW, h.tagH);
++  ctx.strokeRect(cx - tagW / 2, cy - h.tagH / 2, tagW, h.tagH);
++  ctx.fillStyle = color;
++  ctx.fillText(text, cx, cy);
++}
++
+ interface LabelInput {
+   x: number;
+   yHigh: number;
+diff --git a/src/lib/chart-plugins/character-candles/structure-breaks.ts b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+index 64d5699..992bbbe 100644
+--- a/src/lib/chart-plugins/character-candles/structure-breaks.ts
++++ b/src/lib/chart-plugins/character-candles/structure-breaks.ts
+@@ -4,6 +4,13 @@ import {
+   type IctCandle,
+ } from "../ict-analysis/ict-analysis.ts";
+ 
++/** The candle that came back to a broken level and held it. */
++export interface StructureRetest {
++  time: number;
++  /** Where the candle reached into the level: its low for a bullish break, its high for a bearish one. */
++  extreme: number;
++}
++
+ /** One break of structure, ready to draw: a level, the swing it came from and the candle that closed through it. */
+ export interface StructureBreak {
+   /** BOS continues the trend. CHoCH is the first break against it. */
+@@ -14,6 +21,8 @@ export interface StructureBreak {
+   /** The swing candle the level came from. */
+   startTime: number;
+   price: number;
++  /** Set when price came back to the level and held it. Absent while there is no hold. */
++  retest?: StructureRetest;
+ }
+ 
+ export interface StructureBreakOptions {
+@@ -21,10 +30,35 @@ export interface StructureBreakOptions {
+   strength?: number;
+   /** Only keep breaks this far back from the latest candle. */
+   lookbackSeconds?: number;
++  /** How many candles after a break price has to come back and hold. */
++  retestBars?: number;
+ }
+ 
+ export const DEFAULT_STRUCTURE_STRENGTH = 5;
+ export const DEFAULT_STRUCTURE_LOOKBACK_SECONDS = 30 * 24 * 60 * 60;
++/** Same window the ICT Structure 4 trade setup uses for its retest. */
++export const DEFAULT_STRUCTURE_RETEST_BARS = 8;
++
++/**
++ * The first candle after the break that reaches back to the level and closes
++ * on the right side of it: a bullish break holds when a low touches the level
++ * and the candle still closes above it, a bearish break the other way round.
++ */
++function findHold(
++  closed: readonly IctCandle[],
++  breakIndex: number,
++  direction: StructureBreak["direction"],
++  price: number,
++  maxBars: number,
++): StructureRetest | undefined {
++  const hit = closed
++    .slice(breakIndex + 1, breakIndex + 1 + maxBars)
++    .find((candle) => direction === "bullish"
++      ? candle.low <= price && candle.close >= price
++      : candle.high >= price && candle.close <= price);
++  if (!hit) return undefined;
++  return { time: hit.time, extreme: direction === "bullish" ? hit.low : hit.high };
++}
+ 
+ /**
+  * BOS and CHoCH read from closed candles only, so a label never appears and
+@@ -36,8 +70,11 @@ export function detectStructureBreaks(
+ ): StructureBreak[] {
+   const latest = candles.at(-1)?.time;
+   if (latest === undefined) return [];
++  const closed = candles.slice(0, -1);
++  const indexByTime = new Map(closed.map((candle, index) => [candle.time, index]));
++  const retestBars = Math.max(1, Math.floor(options.retestBars ?? DEFAULT_STRUCTURE_RETEST_BARS));
+   const events = detectIctEvents(
+-    candles.slice(0, -1),
++    closed,
+     options.strength ?? DEFAULT_STRUCTURE_STRENGTH,
+   );
+   return filterRecentIctEvents(
+@@ -47,12 +84,17 @@ export function detectStructureBreaks(
+   ).flatMap((event): StructureBreak[] => {
+     if ((event.kind !== "bos" && event.kind !== "choch") ||
+         event.price === undefined || event.startTime === undefined) return [];
++    const breakIndex = indexByTime.get(event.time);
++    const retest = breakIndex === undefined
++      ? undefined
++      : findHold(closed, breakIndex, event.direction, event.price, retestBars);
+     return [{
+       kind: event.kind === "bos" ? "BOS" : "CHoCH",
+       direction: event.direction,
+       time: event.time,
+       startTime: event.startTime,
+       price: event.price,
++      ...(retest ? { retest } : {}),
+     }];
+   });
+ }

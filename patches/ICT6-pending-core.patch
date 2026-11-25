@@ -1,0 +1,82 @@
+diff --git a/src/__tests__/candle-pending.test.ts b/src/__tests__/candle-pending.test.ts
+new file mode 100644
+index 0000000..c081891
+--- /dev/null
++++ b/src/__tests__/candle-pending.test.ts
+@@ -0,0 +1,34 @@
++import { describe, expect, it } from "vitest";
++import { isPendingCandle } from "../lib/chart-plugins/character-candles/candle-pending";
++
++const BAR = 300;
++
++describe("isPendingCandle", () => {
++  it("is pending on the break candle while the retest is waiting", () => {
++    const setups = [{ direction: "short" as const, breakTime: 1000 }];
++    expect(isPendingCandle(setups, 1000, "bearish", BAR, 1600)).toBe(true);
++  });
++  it("is not pending once the retest has happened", () => {
++    const setups = [{ direction: "short" as const, breakTime: 1000, retestTime: 1600 }];
++    expect(isPendingCandle(setups, 1000, "bearish", BAR, 1900)).toBe(false);
++  });
++  it("is not pending for the opposite direction", () => {
++    const setups = [{ direction: "short" as const, breakTime: 1000 }];
++    expect(isPendingCandle(setups, 1000, "bullish", BAR, 1600)).toBe(false);
++  });
++  it("is not pending when the break is stale", () => {
++    const setups = [{ direction: "long" as const, breakTime: 1000 }];
++    expect(isPendingCandle(setups, 1000, "bullish", BAR, 1000 + 25 * BAR)).toBe(false);
++  });
++  it("only the newest broken setup can be pending", () => {
++    const setups = [
++      { direction: "long" as const, breakTime: 1000 },
++      { direction: "long" as const, breakTime: 2000, retestTime: 2300 },
++    ];
++    expect(isPendingCandle(setups, 1000, "bullish", BAR, 2600)).toBe(false);
++  });
++  it("is not pending on an unrelated candle", () => {
++    const setups = [{ direction: "long" as const, breakTime: 1000 }];
++    expect(isPendingCandle(setups, 3000, "bullish", BAR, 3100)).toBe(false);
++  });
++});
+diff --git a/src/lib/chart-plugins/character-candles/candle-pending.ts b/src/lib/chart-plugins/character-candles/candle-pending.ts
+new file mode 100644
+index 0000000..9efd697
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/candle-pending.ts
+@@ -0,0 +1,36 @@
++import type { CandleBias } from "./candle-story";
++
++/** The parts of an ICT Structure 4 setup that Pending needs. */
++export interface PendingSetup {
++  direction: "long" | "short";
++  breakTime?: number;
++  retestTime?: number;
++}
++
++/** A waiting retest older than this many candles is treated as stale, not pending. */
++export const PENDING_MAX_BARS = 24;
++
++/**
++ * True when this pattern candle sits on the break of the one live setup that is
++ * still waiting for its retest. Only the newest broken setup can be pending, so
++ * at most one candle on the chart shows it. Never claims a trade is confirmed.
++ */
++export function isPendingCandle(
++  setups: readonly PendingSetup[],
++  time: number,
++  bias: CandleBias,
++  barSeconds: number,
++  lastCandleTime: number,
++  maxBars: number = PENDING_MAX_BARS,
++): boolean {
++  let latest: PendingSetup | undefined;
++  for (const s of setups) {
++    if (s.breakTime === undefined) continue;
++    if (!latest || s.breakTime > (latest.breakTime as number)) latest = s;
++  }
++  if (!latest || latest.breakTime === undefined) return false;
++  if (latest.retestTime !== undefined) return false;
++  if (latest.direction !== (bias === "bullish" ? "long" : "short")) return false;
++  if (lastCandleTime - latest.breakTime > maxBars * barSeconds) return false;
++  return Math.abs(latest.breakTime - time) <= barSeconds;
++}

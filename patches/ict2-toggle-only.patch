@@ -1,0 +1,52 @@
+diff --git a/src/pages/trading/ChartPanel.tsx b/src/pages/trading/ChartPanel.tsx
+index 3735ed7..7145fcd 100644
+--- a/src/pages/trading/ChartPanel.tsx
++++ b/src/pages/trading/ChartPanel.tsx
+@@ -1916,9 +1916,13 @@ export function ChartPanel({
+     const series = candleSeriesRef.current;
+     detachPlugins(series, chartPluginsRef.current);
+     chartPluginsRef.current = [];
++    // ICT 2 owns the complete liquidity-to-trade chain. ICT 4 remains available
++    // as a standalone setup overlay, and de-duplicate it when both are enabled.
++    const pluginIds = new Set(activePlugins);
++    if (pluginIds.has("ict-structure-2")) pluginIds.add("learning-trade-setup");
+     attachPlugins(
+       series,
+-      activePlugins,
++      [...pluginIds],
+       { isDark, timeframe, symbolCategory },
+       chartPluginsRef.current,
+     );
+diff --git a/src/pages/trading/ChartSettingsDialog.tsx b/src/pages/trading/ChartSettingsDialog.tsx
+index 7863370..9f0f7c6 100644
+--- a/src/pages/trading/ChartSettingsDialog.tsx
++++ b/src/pages/trading/ChartSettingsDialog.tsx
+@@ -413,8 +413,8 @@ function EventsTab({
+         onChange={() => onTogglePlugin?.("ict")}
+       />
+       <ToggleRow
+-        label="ICT Structure 2 — Liquidity / Sweeps"
+-        hint="Buy-side and sell-side liquidity, equal highs/lows, and sweep-and-reclaim markers"
++        label="ICT Structure 2 — Sweep / Break / Retest / Trade"
++        hint="Liquidity levels and the full sweep, structure break, retest/hold, and paper trade-candidate sequence. ICT 6 candle characters stay independent."
+         checked={activePlugins.includes("ict-structure-2")}
+         disabled={!onTogglePlugin}
+         onChange={() => onTogglePlugin?.("ict-structure-2")}
+diff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx
+index 9249898..cbe76f2 100644
+--- a/src/pages/trading/ChartToolbar.tsx
++++ b/src/pages/trading/ChartToolbar.tsx
+@@ -517,11 +517,11 @@ const CHART_PLUGIN_ITEMS = [
+   { id: "session-breaks", icon: CalendarDays, label: "Session Breaks" },
+   { id: "bands", icon: AlignCenter, label: "Bands Indicator" },
+   { id: "ict", icon: Layers3, label: "ICT Structure 1 — Market Structure" },
+-  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 (Liquidity / Sweeps)" },
++  { id: "ict-structure-2", icon: Layers3, label: "ICT Structure 2 — Sweep / Break / Retest / Trade" },
+   { id: "candle-patterns", icon: Layers3, label: "ICT Structure 3 — Candle Patterns" },
+   { id: "learning-trade-setup", icon: Layers3, label: "ICT Structure 4 — ICT Trade Setup" },
+   { id: "ai", icon: Activity, label: "ICT Structure 5 — ICT AI Setup" },
+-  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Extras" },
++  { id: "character-candles", icon: Layers3, label: "ICT Structure 6 — Candle Characters & Names" },
+   { id: "tooltip", icon: Info, label: "OHLCV Tooltip" },
+   { id: "delta-tooltip", icon: Activity, label: "Delta Tooltip" },
+ ] satisfies Array<{ id: string; icon: LucideIcon; label: string }>;

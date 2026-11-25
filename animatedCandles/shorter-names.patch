@@ -1,0 +1,28 @@
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index ff112a5..fb9e997 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -30,18 +30,18 @@ export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
+   "evening-star": "dusk-star",
+ };
+ 
+-/** Real pattern names shown on the chart labels (never the character names). */
++/** Real pattern names shown on the chart labels (never the character names). Direction is shown by the tag colour. */
+ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
+   hammer: "Hammer",
+   "inverted-hammer": "Inverted Hammer",
+   "shooting-star": "Shooting Star",
+   "hanging-man": "Hanging Man",
+-  "bullish-engulfing": "Bullish Engulfing",
+-  "bearish-engulfing": "Bearish Engulfing",
++  "bullish-engulfing": "Engulfing",
++  "bearish-engulfing": "Engulfing",
+   "morning-star": "Morning Star",
+   "evening-star": "Evening Star",
+-  "bullish-marubozu": "Bullish Marubozu",
+-  "bearish-marubozu": "Bearish Marubozu",
++  "bullish-marubozu": "Marubozu",
++  "bearish-marubozu": "Marubozu",
+ };
+ 
+ /** Which way each pattern points, used to decide if the next candles confirm or fail it. */

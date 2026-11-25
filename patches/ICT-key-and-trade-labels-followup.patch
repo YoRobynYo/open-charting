@@ -1,0 +1,256 @@
+diff --git a/src/lib/chart-plugins/indicator-legend.ts b/src/lib/chart-plugins/indicator-legend.ts
+index 16662b3..8f74176 100644
+--- a/src/lib/chart-plugins/indicator-legend.ts
++++ b/src/lib/chart-plugins/indicator-legend.ts
+@@ -1,14 +1,14 @@
+ export interface IndicatorLegendItem {
+   label: string;
+   color: string;
+-  shape: "dot" | "triangle" | "candle";
++  shape: "dot" | "line" | "candle";
+ }
+ 
+ export const ICT_TRADE_SETUP_LEGEND: IndicatorLegendItem[] = [
+   { label: "Liquidity", color: "#a78bfa", shape: "dot" },
+   { label: "Sweep confirmed", color: "#fb923c", shape: "dot" },
+-  { label: "BOS", color: "#38bdf8", shape: "triangle" },
+-  { label: "CHoCH", color: "#d946ef", shape: "triangle" },
++  { label: "BOS", color: "#22c55e", shape: "line" },
++  { label: "CHoCH", color: "#f43f5e", shape: "line" },
+   { label: "Retest / paper candidate", color: "#22c55e", shape: "dot" },
+   { label: "Invalidated", color: "#f43f5e", shape: "dot" },
+ ];
+@@ -24,4 +24,6 @@ export const ICT_CANDLE_PATTERN_LEGEND: IndicatorLegendItem[] = [
+   { label: "Evening Star", color: "#fb7185", shape: "candle" },
+   { label: "Bullish Marubozu", color: "#16a34a", shape: "candle" },
+   { label: "Bearish Marubozu", color: "#dc2626", shape: "candle" },
++  { label: "BOS breakout", color: "#22c55e", shape: "line" },
++  { label: "CHoCH breakout", color: "#f43f5e", shape: "line" },
+ ];
+diff --git a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts
+index 49809ca..555b852 100644
+--- a/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts
++++ b/src/lib/chart-plugins/trade-setup/trade-setup-analysis.ts
+@@ -28,6 +28,7 @@ interface PositionedSetup extends TradeSetup {
+ 
+ interface PositionedBreak {
+   event: IctEvent;
++  startX: number;
+   x: number;
+   y: number;
+ }
+@@ -57,8 +58,15 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
+       ctx.textBaseline = "middle";
+       const width = scope.bitmapSize.width / scope.horizontalPixelRatio;
+ 
+-      for (const { event, x, y } of this.breaks) {
+-        drawInvertedTriangle(ctx, x, y, event.kind === "bos" ? "#38bdf8" : "#d946ef");
++      for (const { event, startX, x, y } of this.breaks) {
++        drawStructureBreakLine(
++          ctx,
++          startX,
++          x,
++          y,
++          event.kind === "bos" ? "#22c55e" : "#f43f5e",
++          event.kind === "bos" ? "BOS" : "CHoCH",
++        );
+       }
+ 
+       for (const setup of this.setups) {
+@@ -75,10 +83,15 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
+           ctx.setLineDash([]);
+         }
+ 
+-        const markers: Array<{ x?: number; y?: number; color: string }> = [
+-          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa" },
+-          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c" },
+-          { x: setup.retestX, y: levelY, color: directionColor },
++        const markers: Array<{ x?: number; y?: number; color: string; label: string }> = [
++          { x: setup.liquidityX, y: setup.liquidityY, color: "#a78bfa", label: "Liquidity" },
++          { x: setup.sweepX, y: setup.sweepY, color: "#fb923c", label: "Sweep confirmed" },
++          {
++            x: setup.retestX,
++            y: levelY,
++            color: directionColor,
++            label: setup.stage === "candidate" ? "Retest / paper candidate" : "Retest pending",
++          },
+         ];
+ 
+         for (const marker of markers) {
+@@ -87,6 +100,7 @@ class TradeSetupRenderer implements ISeriesPrimitivePaneRenderer {
+           ctx.beginPath();
+           ctx.arc(marker.x, marker.y, 3.5, 0, Math.PI * 2);
+           ctx.fill();
++          drawMarkerLabel(ctx, marker.x + 7, marker.y - 12, marker.label, marker.color, width);
+         }
+ 
+         const planY = setup.entryY ?? levelY;
+@@ -146,9 +160,12 @@ class TradeSetupPaneView implements ISeriesPrimitivePaneView {
+     }));
+     this.positionedBreaks = this.source.structureEvents()
+       .map((event) => {
++        const startX = xFor(this.source, event.startTime);
+         const x = xFor(this.source, event.time);
+         const y = yFor(this.source, event.price);
+-        return x === undefined || y === undefined ? undefined : { event, x, y };
++        return startX === undefined || x === undefined || y === undefined
++          ? undefined
++          : { event, startX, x, y };
+       })
+       .filter((item): item is PositionedBreak => item !== undefined);
+   }
+@@ -207,18 +224,38 @@ export class TradeSetupAnalysis extends PluginBase {
+   }
+ }
+ 
+-function drawInvertedTriangle(
++function drawStructureBreakLine(
++  ctx: CanvasRenderingContext2D,
++  startX: number,
++  endX: number,
++  y: number,
++  color: string,
++  label: string,
++): void {
++  ctx.strokeStyle = color;
++  ctx.lineWidth = 1.5;
++  ctx.setLineDash([6, 5]);
++  ctx.beginPath();
++  ctx.moveTo(startX, y);
++  ctx.lineTo(endX, y);
++  ctx.stroke();
++  ctx.setLineDash([]);
++  drawMarkerLabel(ctx, Math.min(startX, endX) + 5, y - 14, label, color, Math.max(startX, endX) + 80);
++}
++
++function drawMarkerLabel(
+   ctx: CanvasRenderingContext2D,
+   x: number,
+   y: number,
++  label: string,
+   color: string,
++  width: number,
+ ): void {
+-  const size = 6;
++  const textWidth = ctx.measureText(label).width + 8;
++  const labelX = Math.min(Math.max(4, x), width - textWidth - 4);
++  ctx.fillStyle = "rgba(9, 12, 18, 0.88)";
++  ctx.fillRect(labelX, y - 8, textWidth, 16);
+   ctx.fillStyle = color;
+-  ctx.beginPath();
+-  ctx.moveTo(x - size, y - size);
+-  ctx.lineTo(x + size, y - size);
+-  ctx.lineTo(x, y + size);
+-  ctx.closePath();
+-  ctx.fill();
++  ctx.textAlign = "left";
++  ctx.fillText(label, labelX + 4, y);
+ }
+diff --git a/src/pages/trading/ChartToolbar.tsx b/src/pages/trading/ChartToolbar.tsx
+index 9249898..7325aa2 100644
+--- a/src/pages/trading/ChartToolbar.tsx
++++ b/src/pages/trading/ChartToolbar.tsx
+@@ -395,6 +395,7 @@ export function ChartToolbar({
+             </div>
+           )}
+         </div>
++        <IctLegendDropdown />
+         <DrawingToolsDropdown
+           drawingTool={drawingTool}
+           onDrawingTool={onDrawingTool}
+@@ -586,38 +587,69 @@ function PluginsDropdown({
+               </button>
+             );
+           })}
+-          <div className="mt-1 border-t border-border px-3 py-2">
+-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+-              ICT Trade Setup key
+-            </div>
+-            {ICT_TRADE_SETUP_LEGEND.map((item) => (
+-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
+-                <span
+-                  className={cn(
+-                    "inline-block h-2.5 w-2.5 shrink-0",
+-                    item.shape === "dot" ? "rounded-full" : "rotate-45 rounded-[2px]",
+-                  )}
+-                  style={{ backgroundColor: item.color }}
+-                />
+-                <span>{item.label}</span>
+-              </div>
+-            ))}
+-            <div className="mb-1 mt-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+-              ICT Candle Patterns key
+-            </div>
+-            {ICT_CANDLE_PATTERN_LEGEND.map((item) => (
+-              <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
+-                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
+-                <span>{item.label}</span>
+-              </div>
+-            ))}
+-          </div>
+         </div>
+       )}
+     </div>
+   );
+ }
+ 
++function IctLegendDropdown() {
++  const [open, setOpen] = useState(false);
++  const containerRef = useRef<HTMLDivElement>(null);
++
++  useEffect(() => {
++    if (!open) return;
++    const handler = (event: MouseEvent) => {
++      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
++    };
++    document.addEventListener("mousedown", handler);
++    return () => document.removeEventListener("mousedown", handler);
++  }, [open]);
++
++  return (
++    <div ref={containerRef} className="relative">
++      <button
++        type="button"
++        onClick={() => setOpen((value) => !value)}
++        title="ICT colour key"
++        className={cn(
++          "flex items-center gap-1 rounded px-2 py-1 text-xs",
++          open ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-secondary",
++        )}
++      >
++        <Layers3 className="h-3 w-3" />
++        ICT Key
++      </button>
++      {open && (
++        <div className="absolute right-0 top-full z-50 mt-1 grid w-[34rem] grid-cols-2 gap-4 rounded-lg border border-border bg-card p-3 shadow-xl">
++          <LegendColumn title="ICT Structure 4 — Trade Setup" items={ICT_TRADE_SETUP_LEGEND} />
++          <LegendColumn title="ICT Structure 3 — Candle Patterns" items={ICT_CANDLE_PATTERN_LEGEND} />
++        </div>
++      )}
++    </div>
++  );
++}
++
++function LegendColumn({ title, items }: { title: string; items: typeof ICT_TRADE_SETUP_LEGEND }) {
++  return (
++    <div>
++      <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>
++      {items.map((item) => (
++        <div key={item.label} className="flex items-center gap-2 py-0.5 text-[11px] text-muted-foreground">
++          <span
++            className={cn(
++              "inline-block h-2.5 w-2.5 shrink-0",
++              item.shape === "dot" ? "rounded-full" : item.shape === "line" ? "h-px w-3" : "rounded-sm",
++            )}
++            style={{ backgroundColor: item.color }}
++          />
++          <span>{item.label}</span>
++        </div>
++      ))}
++    </div>
++  );
++}
++
+ const DRAWING_TOOLS = [
+   { tool: "horizontal" as const, icon: Minus, label: "Horizontal Line", shortcut: "Alt+H" },
+   { tool: "trendline" as const, icon: TrendingUp, label: "Trendline", shortcut: "Alt+T" },

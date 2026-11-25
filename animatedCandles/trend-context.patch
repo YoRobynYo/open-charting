@@ -1,0 +1,129 @@
+diff --git a/src/__tests__/candle-pattern-trend.test.ts b/src/__tests__/candle-pattern-trend.test.ts
+new file mode 100644
+index 0000000..e007e9b
+--- /dev/null
++++ b/src/__tests__/candle-pattern-trend.test.ts
+@@ -0,0 +1,43 @@
++import { describe, expect, it } from "vitest";
++import type { Candle } from "../services/schemas.ts";
++import { detectCandlePatternAt } from "../lib/candle-patterns.ts";
++
++function candle(time: number, open: number, high: number, low: number, close: number): Candle {
++  return { time, open, high, low, close, volume: 1 };
++}
++
++/** Six steady candles, each 10 wide: falling or rising by 8 per candle. */
++function trend(direction: "down" | "up"): Candle[] {
++  return Array.from({ length: 6 }, (_, i) => {
++    const open = direction === "down" ? 200 - 8 * i : 100 + 8 * i;
++    const close = direction === "down" ? open - 6 : open + 6;
++    return candle(i, open, Math.max(open, close) + 2, Math.min(open, close) - 2, close);
++  });
++}
++
++// Same hammer shape in both colours: long lower wick, small body, close near the top.
++const redHammerShape = candle(6, 150, 150.5, 140, 148);
++const greenHammerShape = candle(6, 146, 148.5, 138, 148);
++
++describe("hammer vs hanging man uses the move before the candle", () => {
++  it("calls a red hammer shape after a fall a hammer", () => {
++    expect(detectCandlePatternAt([...trend("down"), redHammerShape], 6).pattern).toBe("hammer");
++  });
++
++  it("calls a green hammer shape after a rise a hanging man", () => {
++    expect(detectCandlePatternAt([...trend("up"), greenHammerShape], 6).pattern).toBe("hanging-man");
++  });
++
++  it("keeps a hammer a hammer after a fall", () => {
++    expect(detectCandlePatternAt([...trend("down"), greenHammerShape], 6).pattern).toBe("hammer");
++  });
++
++  it("keeps a hanging man a hanging man after a rise", () => {
++    expect(detectCandlePatternAt([...trend("up"), redHammerShape], 6).pattern).toBe("hanging-man");
++  });
++
++  it("falls back to the colour rule when there is no history to read", () => {
++    expect(detectCandlePatternAt([redHammerShape], 0).pattern).toBe("hanging-man");
++    expect(detectCandlePatternAt([greenHammerShape], 0).pattern).toBe("hammer");
++  });
++});
+diff --git a/src/lib/candle-patterns.ts b/src/lib/candle-patterns.ts
+index 93c44d8..ce65d81 100644
+--- a/src/lib/candle-patterns.ts
++++ b/src/lib/candle-patterns.ts
+@@ -58,6 +58,10 @@ const ENGULFING_MIN_BODY_RATIO = 0.5;
+ const SIGNIFICANCE_LOOKBACK = 14;
+ /** A pattern candle's range must reach this share of the recent average range. */
+ const MIN_RANGE_VS_AVERAGE = 0.8;
++/** How many candles before a hammer-shaped candle are read to see which way price was heading. */
++const TREND_LOOKBACK = 6;
++/** The move over that stretch must reach this many average candle ranges to count as a trend. */
++const TREND_MIN_MOVE_VS_RANGE = 2;
+ 
+ function noPattern(anatomy: CandleAnatomy, explanation: string): CandlePatternResult {
+   return {
+@@ -247,6 +251,55 @@ function isSignificantCandle(candles: readonly Candle[], index: number): boolean
+   return current.high - current.low >= (total / count) * MIN_RANGE_VS_AVERAGE;
+ }
+ 
++type PriorTrend = "up" | "down" | "flat";
++
++/** Which way price was heading over the candles just before `index`. */
++function priorTrend(candles: readonly Candle[], index: number): PriorTrend {
++  if (index < TREND_LOOKBACK) return "flat";
++  let rangeTotal = 0;
++  for (let i = index - TREND_LOOKBACK; i < index; i++) {
++    const previous = candles[i]!;
++    rangeTotal += previous.high - previous.low;
++  }
++  const averageRange = rangeTotal / TREND_LOOKBACK;
++  const move = candles[index - 1]!.close - candles[index - TREND_LOOKBACK]!.close;
++  if (move >= averageRange * TREND_MIN_MOVE_VS_RANGE) return "up";
++  if (move <= -averageRange * TREND_MIN_MOVE_VS_RANGE) return "down";
++  return "flat";
++}
++
++/**
++ * A hammer and a hanging man share one shape. What separates them is where price
++ * was heading before: after a fall the shape is a hammer, after a rise it is a
++ * hanging man, whatever the candle colour. With no clear trend the colour rule
++ * from detectRejectionCandle stays.
++ */
++function applyTrendContext(
++  candles: readonly Candle[],
++  index: number,
++  result: CandlePatternResult,
++): CandlePatternResult {
++  if (result.pattern !== "hammer" && result.pattern !== "hanging-man") return result;
++  const trend = priorTrend(candles, index);
++  if (trend === "down" && result.pattern === "hanging-man") {
++    return {
++      ...result,
++      pattern: "hammer",
++      visualState: "hammer-candidate",
++      explanation: "Long lower wick, compact body and a close in the upper part of the range after a fall: a hammer, whatever the candle colour.",
++    };
++  }
++  if (trend === "up" && result.pattern === "hammer") {
++    return {
++      ...result,
++      pattern: "hanging-man",
++      visualState: "hanging-man-candidate",
++      explanation: "Long lower wick, compact body and a close in the upper part of the range after a rise: a hanging man, whatever the candle colour.",
++    };
++  }
++  return result;
++}
++
+ /** Classify the pattern confirmed on a candle using the available prior context. */
+ export function detectCandlePatternAt(
+   candles: readonly Candle[],
+@@ -276,7 +329,7 @@ export function detectCandlePatternAt(
+     const engulfing = detectEngulfing(candles[index - 1]!, current);
+     if (engulfing.pattern !== "none") return engulfing;
+   }
+-  return detectRejectionCandle(current);
++  return applyTrendContext(candles, index, detectRejectionCandle(current));
+ }
+ 
+ export interface CandleSequenceResult {

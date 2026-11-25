@@ -1,0 +1,280 @@
+diff --git a/src/__tests__/candle-story.test.ts b/src/__tests__/candle-story.test.ts
+new file mode 100644
+index 0000000..c3573df
+--- /dev/null
++++ b/src/__tests__/candle-story.test.ts
+@@ -0,0 +1,42 @@
++import { describe, expect, it } from "vitest";
++import { evaluateCandleStory } from "../lib/chart-plugins/character-candles/candle-story.ts";
++
++const c = (high: number, low: number, close: number) => ({ high, low, close });
++
++describe("evaluateCandleStory", () => {
++  const signal = c(110, 100, 105);
++
++  it("confirms a bullish pattern when a later candle closes above its high", () => {
++    expect(evaluateCandleStory([signal, c(108, 104, 107), c(114, 107, 112)], 0, "bullish")).toBe("confirmed");
++  });
++
++  it("confirms a bearish pattern when a later candle closes below its low", () => {
++    expect(evaluateCandleStory([signal, c(106, 96, 98)], 0, "bearish")).toBe("confirmed");
++  });
++
++  it("fails a bullish pattern when a later candle closes below its low", () => {
++    expect(evaluateCandleStory([signal, c(104, 95, 97)], 0, "bullish")).toBe("failed");
++  });
++
++  it("fails a bearish pattern when a later candle closes above its high", () => {
++    expect(evaluateCandleStory([signal, c(114, 106, 112)], 0, "bearish")).toBe("failed");
++  });
++
++  it("keeps waiting while the window is still open", () => {
++    expect(evaluateCandleStory([signal, c(108, 102, 106)], 0, "bullish", 3)).toBe("waiting");
++  });
++
++  it("expires when the window passes with no decision", () => {
++    const quiet = c(108, 102, 106);
++    expect(evaluateCandleStory([signal, quiet, quiet, quiet, quiet], 0, "bullish", 3)).toBe("expired");
++  });
++
++  it("only looks inside the window", () => {
++    const quiet = c(108, 102, 106);
++    expect(evaluateCandleStory([signal, quiet, quiet, quiet, c(120, 110, 118)], 0, "bullish", 3)).toBe("expired");
++  });
++
++  it("waits when the pattern is the newest candle", () => {
++    expect(evaluateCandleStory([signal], 0, "bearish")).toBe("waiting");
++  });
++});
+diff --git a/src/lib/chart-plugins/character-candles/candle-story.ts b/src/lib/chart-plugins/character-candles/candle-story.ts
+new file mode 100644
+index 0000000..535a16b
+--- /dev/null
++++ b/src/lib/chart-plugins/character-candles/candle-story.ts
+@@ -0,0 +1,40 @@
++/**
++ * The "story" of a pattern candle, told with candles only (no other ICT layer):
++ *
++ *   waiting   - the pattern formed and the next few candles have not decided yet
++ *   confirmed - a later candle closed beyond the pattern candle in its direction
++ *   failed    - a later candle closed beyond the pattern candle the other way
++ *   expired   - the window passed and neither happened
++ */
++export type CandleBias = "bullish" | "bearish";
++export type CandleStoryStage = "waiting" | "confirmed" | "failed" | "expired";
++
++interface StoryCandle {
++  high: number;
++  low: number;
++  close: number;
++}
++
++/** How many candles after the pattern candle are allowed to decide the story. */
++export const DEFAULT_CONFIRM_WINDOW = 3;
++
++export function evaluateCandleStory(
++  candles: readonly StoryCandle[],
++  index: number,
++  bias: CandleBias,
++  windowBars = DEFAULT_CONFIRM_WINDOW,
++): CandleStoryStage {
++  const signal = candles[index];
++  if (!signal) return "waiting";
++
++  const last = Math.min(candles.length - 1, index + windowBars);
++  for (let j = index + 1; j <= last; j += 1) {
++    const next = candles[j]!;
++    const confirms = bias === "bullish" ? next.close > signal.high : next.close < signal.low;
++    const fails = bias === "bullish" ? next.close < signal.low : next.close > signal.high;
++    if (confirms) return "confirmed";
++    if (fails) return "failed";
++  }
++  // Nothing decided yet: still waiting while the window is open, otherwise expired.
++  return candles.length - 1 < index + windowBars ? "waiting" : "expired";
++}
+diff --git a/src/lib/chart-plugins/character-candles/character-candles.ts b/src/lib/chart-plugins/character-candles/character-candles.ts
+index f5ebadf..ff112a5 100644
+--- a/src/lib/chart-plugins/character-candles/character-candles.ts
++++ b/src/lib/chart-plugins/character-candles/character-candles.ts
+@@ -9,6 +9,12 @@ import { PluginBase } from "../plugin-base";
+ import { detectCandlePatternAt, type CandlePattern } from "../../candle-patterns";
+ import type { Candle } from "../../../services/schemas";
+ import { CHARACTER_ANIMATIONS, particleAt } from "./animations";
++import {
++  DEFAULT_CONFIRM_WINDOW,
++  evaluateCandleStory,
++  type CandleBias,
++  type CandleStoryStage,
++} from "./candle-story";
+ 
+ /** Which character sprite each detected pattern uses. Add more as you create art. */
+ export const PATTERN_TO_CHARACTER: Partial<Record<CandlePattern, string>> = {
+@@ -38,6 +44,20 @@ export const PATTERN_LABEL: Partial<Record<CandlePattern, string>> = {
+   "bearish-marubozu": "Bearish Marubozu",
+ };
+ 
++/** Which way each pattern points, used to decide if the next candles confirm or fail it. */
++export const PATTERN_BIAS: Partial<Record<CandlePattern, CandleBias>> = {
++  hammer: "bullish",
++  "inverted-hammer": "bullish",
++  "bullish-engulfing": "bullish",
++  "morning-star": "bullish",
++  "bullish-marubozu": "bullish",
++  "shooting-star": "bearish",
++  "hanging-man": "bearish",
++  "bearish-engulfing": "bearish",
++  "evening-star": "bearish",
++  "bearish-marubozu": "bearish",
++};
++
+ /** Label colours, from the original ICT candle-pattern colour table. */
+ export const PATTERN_COLOR: Partial<Record<CandlePattern, string>> = {
+   hammer: "#22d3ee",
+@@ -78,6 +98,10 @@ export interface CharacterCandlesOptions {
+   maxAnimated: number;
+   /** Draw a short leader line and the real pattern name above each character. */
+   showLabels: boolean;
++  /** Candles after a pattern that may confirm it (close beyond its high/low). */
++  confirmWindow: number;
++  /** Keep a faded name tag on failed or expired patterns. Off keeps the chart clean. */
++  labelFailed: boolean;
+   /** Label text size in CSS pixels. */
+   labelFontPx: number;
+   /** Length of the leader line between the wick and the label, in CSS pixels. */
+@@ -96,6 +120,8 @@ const DEFAULTS: CharacterCandlesOptions = {
+   animate: true,
+   maxAnimated: 40,
+   showLabels: true,
++  confirmWindow: DEFAULT_CONFIRM_WINDOW,
++  labelFailed: false,
+   labelFontPx: 11,
+   labelLeadPx: 10,
+ };
+@@ -138,17 +164,25 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+ 
+     target.useBitmapCoordinateSpace(({ context: ctx, horizontalPixelRatio: hpr, verticalPixelRatio: vpr, bitmapSize }) => {
+       // Collect first so only the newest characters animate.
+-      const items: Array<{ i: number; name: string; pattern: CandlePattern; sprite: HTMLImageElement }> = [];
++      const items: Array<{
++        i: number;
++        name: string;
++        pattern: CandlePattern;
++        sprite: HTMLImageElement;
++        stage: CandleStoryStage;
++      }> = [];
+       for (let i = from; i <= to; i++) {
+         const pattern = detectCandlePatternAt(candles, i).pattern;
+         const name = PATTERN_TO_CHARACTER[pattern];
+         if (!name) continue;
+         const sprite = this.source.sprites.get(name);
+-        if (sprite) items.push({ i, name, pattern, sprite });
++        const bias = PATTERN_BIAS[pattern];
++        if (!sprite || !bias) continue;
++        items.push({ i, name, pattern, sprite, stage: evaluateCandleStory(candles, i, bias, options.confirmWindow) });
+       }
+       const firstAnimated = items.length - options.maxAnimated;
+ 
+-      items.forEach(({ i, name, sprite }, n) => {
++      items.forEach(({ i, name, pattern, sprite, stage }, n) => {
+         const bar = data[i];
+         if (!bar) return;
+         const x = chart.timeScale().logicalToCoordinate(i as never);
+@@ -172,12 +206,18 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           ctx.shadowColor = m.glow;
+           ctx.shadowBlur = 14 * m.glowAmount * hpr;
+         }
+-        ctx.globalAlpha = m?.alpha ?? 1;
++        // The story shows on the character: confirmed glows, failed or expired fades.
++        const faded = stage === "failed" || stage === "expired";
++        ctx.globalAlpha = (m?.alpha ?? 1) * (faded ? 0.4 : 1);
++        if (stage === "confirmed" && !(m?.glow && m.glowAmount)) {
++          ctx.shadowColor = PATTERN_COLOR[pattern] ?? "#ffffff";
++          ctx.shadowBlur = 16 * hpr;
++        }
+         drawThreeSlice(ctx, sprite, left * hpr, y * vpr, w * hpr, spriteH * vpr, options.headSlice, options.feetSlice);
+         ctx.restore();
+ 
+         const e = anim?.emitter;
+-        if (e) {
++        if (e && !faded) {
+           ctx.save();
+           ctx.fillStyle = e.color;
+           for (let k = 0; k < e.count; k++) {
+@@ -193,7 +233,9 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+ 
+       if (options.showLabels) {
+         const labels: LabelInput[] = [];
+-        for (const { i, pattern } of items) {
++        for (const { i, pattern, stage } of items) {
++          const lost = stage === "failed" || stage === "expired";
++          if (lost && !options.labelFailed) continue;
+           const bar = data[i];
+           const text = PATTERN_LABEL[pattern];
+           if (!bar || !text) continue;
+@@ -201,7 +243,15 @@ class CharacterRenderer implements ISeriesPrimitivePaneRenderer {
+           const yHigh = series.priceToCoordinate(bar.high);
+           const yLow = series.priceToCoordinate(bar.low);
+           if (x === null || yHigh === null || yLow === null) continue;
+-          labels.push({ x, yHigh, yLow, text, color: PATTERN_COLOR[pattern] ?? "#e5e7eb" });
++          labels.push({
++            x,
++            yHigh,
++            yLow,
++            text,
++            color: PATTERN_COLOR[pattern] ?? "#e5e7eb",
++            status: stage === "confirmed" ? "confirmed" : stage === "failed" ? "failed" : undefined,
++            alpha: lost ? 0.45 : 1,
++          });
+         }
+         drawLabels(ctx, labels, {
+           hpr,
+@@ -222,6 +272,9 @@ interface LabelInput {
+   yLow: number;
+   text: string;
+   color: string;
++  /** Extra last line once the story has played out. */
++  status?: "confirmed" | "failed";
++  alpha?: number;
+ }
+ 
+ /**
+@@ -252,9 +305,13 @@ function drawLabels(
+ 
+   for (const l of labels) {
+     const cx = l.x * hpr;
+-    // Multi-word names wrap one word per line, e.g. "Shooting" over "Star".
+-    const lines = l.text.split(" ");
+-    const textW = Math.max(...lines.map((w) => ctx.measureText(w).width));
++    // Multi-word names wrap one word per line; a decided story adds a last line.
++    const lines: Array<{ text: string; color: string }> = l.text
++      .split(" ")
++      .map((w) => ({ text: w, color: "#f3f4f6" }));
++    if (l.status === "confirmed") lines.push({ text: "✔ Confirmed", color: "#4ade80" });
++    if (l.status === "failed") lines.push({ text: "✖ Failed", color: "#f87171" });
++    const textW = Math.max(...lines.map((w) => ctx.measureText(w.text).width));
+     const boxW = textW + padX * 2;
+     const boxH = lineH * lines.length + padY * 2;
+     const x1 = Math.min(Math.max(cx - boxW / 2, 2 * hpr), Math.max(2 * hpr, v.width - boxW - 2 * hpr));
+@@ -285,6 +342,8 @@ function drawLabels(
+     if (!spot) continue;
+     placed.push({ x1, x2, y1: spot.y1, y2: spot.y1 + boxH });
+ 
++    ctx.globalAlpha = l.alpha ?? 1;
++
+     // Leader line from the wick to the tag.
+     const lineX = Math.min(Math.max(cx, x1 + radius), x2 - radius);
+     ctx.strokeStyle = l.color;
+@@ -307,10 +366,11 @@ function drawLabels(
+     ctx.fill();
+     ctx.strokeStyle = l.color;
+     ctx.stroke();
+-    ctx.fillStyle = "#f3f4f6";
+     lines.forEach((line, k) => {
+-      ctx.fillText(line, x1 + boxW / 2, y1 + padY + lineH * (k + 0.5) + vpr * 0.5);
++      ctx.fillStyle = line.color;
++      ctx.fillText(line.text, x1 + boxW / 2, y1 + padY + lineH * (k + 0.5) + vpr * 0.5);
+     });
++    ctx.globalAlpha = 1;
+   }
+   ctx.restore();
+ }
